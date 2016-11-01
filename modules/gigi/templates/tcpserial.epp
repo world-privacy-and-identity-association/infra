@@ -1,0 +1,6 @@
+[Unit]
+Description=tcpserial for cassiopeia signer
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/tcpserial /var/lib/cassiopeia/serial 8000 <%=$cass_ip%>

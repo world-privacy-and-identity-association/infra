@@ -1,0 +1,6 @@
+[Unit]
+Description=cassiopeia client
+
+[Service]
+ExecStart=/usr/bin/cassiopeia
+WorkingDirectory=/var/lib/cassiopeia/

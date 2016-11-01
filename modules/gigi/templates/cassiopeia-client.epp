@@ -1,0 +1,7 @@
+[Unit]
+Description=cassiopeia client
+Conflicts=gigi-simple-signer.service
+
+[Service]
+ExecStart=/usr/bin/cassiopeia
+WorkingDirectory=/var/lib/cassiopeia

@@ -1,0 +1,223 @@
+#!/bin/bash
+#Get domain-name and gigi-ip from the puppet config to know how to communicate with gigi
+hostname=$(sed -n "/\$systemDomain/ { s/\$systemDomain = '\([^']*\)'/\1/; p }" environments/production/manifests/ip.pp)
+ip=$(grep -A10 -F '$ips' environments/production/manifests/ip.pp | grep -F 'gigi =>' | head -n 1 | sed "s/.*'\([^']*\)'.*/\1/")
+
+folder=.bootstrap-user-data
+mkdir -p $folder
+
+# Curl gigi using correct host-header, faking https-access and using the cookies in "cookie-jar"
+function mcurl {
+    local url="$1"
+    shift
+    curl -s --header "X-Real-Proto: https" --header "Host: www.$hostname" -b $folder/cookie-jar "http://$ip/$url" "$@"
+}
+
+# get the csrf out of a webpage (arguments 1 and 2 can be used to select the correct csrf-token)
+function csrf {
+    grep csrf | ${1:-cat}  | ${2:-cat} | sed "s/.*value='\([^']*\)'.*/\\1/"
+}
+
+# update the cookie-jar so that cookies received with https-only property are also sent over our fake-https-connection
+function open-jar {
+    sed -i 's/TRUE/FALSE/g' "$1" # also use the cookie over insecure connection
+}
+function silent_read {
+    prompt="$1"
+    shift
+    read -rsp "$prompt" "$@"
+    printf '\n'
+}
+#execute a registration in gigi. If "$1" == "nopass" a password is not asked for but chosen at random.
+function register {
+    csrf=$(mcurl register -c $folder/cookie-jar | csrf)
+    open-jar $folder/cookie-jar
+    silent_read "First Name: " fname
+    silent_read "Last Name: " lname
+    silent_read "Year of birth: " year
+    silent_read "Month of birth: " month
+    silent_read "Day of birth: " day
+    silent_read "Email address: " email
+    while [[ "$email" == *"'"* || "$email" == *"\\"* ]]; do
+        silent_read "Email address was not valid, try again: " email
+    done
+    if [[ "$1" == "nopass" ]]; then
+        pw1="$(head -c 15 /dev/urandom | base64)"
+        pw2="$pw1"
+    else
+        silent_read "Password: " pw1
+        silent_read "Password (repeat): " pw2
+        while [[ "$pw1" != "$pw2" ]]; do
+            silent_read "Password: " pw1
+            silent_read "Password (repeat): " pw2
+        done
+    fi
+    mcurl register --data-urlencode "name-type=western" \
+          --data-urlencode "fname=$fname" \
+          --data-urlencode "lname=$lname" \
+          --data-urlencode "suffix" \
+          --data-urlencode "name" \
+          --data-urlencode "year=$year" \
+          --data-urlencode "month=$month" \
+          --data-urlencode "day=$day" \
+          --data-urlencode "residenceCountry=invalid" \
+          --data-urlencode "email=$email" \
+          --data-urlencode "pword1=$pw1" \
+          --data-urlencode "pword2=$pw2" \
+          --data-urlencode "general=1" \
+          --data-urlencode "country=1" \
+          --data-urlencode "regional=1" \
+          --data-urlencode "radius=1" \
+          --data-urlencode "tos_agree=1" \
+          --data-urlencode "process=Weiter" \
+          --data-urlencode "csrf=$csrf" > /dev/null
+}
+if ! type curl > /dev/null; then
+    echo "requires curl" >&2
+    exit 1
+fi
+if ! [[ "$(sudo lxc-attach -n postgres-primary -- su -c "psql -At gigi" postgres <<< "\dt")" == "No relations found." ]]; then
+    echo "gigi already has a database" >&2
+    exit 1
+fi
+# Manually managing gigi + nginx for now
+sudo lxc-attach -n front-nginx systemctl stop puppet.service
+sudo lxc-attach -n gigi systemctl stop puppet.service
+
+#Stopping nginx so no-one external can interfere with our init procedure
+sudo lxc-attach -n front-nginx systemctl stop nginx.service
+sudo lxc-attach -n gigi systemctl stop gigi-proxy.{socket,service}
+sudo lxc-attach -n gigi systemctl stop cassiopeia-client.service
+sudo lxc-attach -n gigi gigi reset-database
+sudo lxc-attach -n gigi systemctl start cassiopeia-client.service
+sudo lxc-attach -n gigi systemctl start gigi-proxy.socket
+
+rm -f $folder/cookie-jar
+echo "So... preliminary things done. Let's start with the setup"
+echo "We need a first administrative user, this user will be one of the bootstrappers for the WoT and seed for support."
+register
+adminEmail=$email
+adminPw=$pw1
+echo "Ok, let's define the second bootstrapper"
+register nopass
+secondaryEmail=$email
+echo "You should now have been sent an activation link to the email you entered previously"
+read -rp "The activation link: " link
+params=${link##*\?}
+csrf=$(mcurl "verify?$params" -c $folder/cookie-jar | csrf)
+open-jar $folder/cookie-jar
+echo "doing verification with $params"
+if ! mcurl verify -d "$params&csrf=$csrf" | grep -qF "<div class='alert alert-success'>"; then
+    echo "Your e-mail address did not verify." >&2
+    exit 1
+fi
+
+echo "granting initial bootstrapping-rights"
+sudo lxc-attach -n postgres-primary -- su -c "psql -d gigi" postgres <<EOF
+INSERT INTO user_groups("user","permission","grantedby") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'),'supporter',(SELECT "id" FROM "users" WHERE "email"='$adminEmail'));
+INSERT INTO user_groups("user","permission","grantedby") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'),'orgassurer',(SELECT "id" FROM "users" WHERE "email"='$adminEmail'));
+INSERT INTO notary("from","to","points","location","when","date") VALUES((SELECT "id" FROM "users" WHERE "email"='$secondaryEmail'), (SELECT "preferredName" FROM "users" WHERE "email"='$adminEmail'), 100, 'initial', CURRENT_TIMESTAMP, '$(date +%Y-%m-%d)');
+INSERT INTO notary("from","to","points","location","when","date") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'), (SELECT "preferredName" FROM "users" WHERE "email"='$secondaryEmail'), 100, 'initial', CURRENT_TIMESTAMP, '$(date +%Y-%m-%d)');
+INSERT INTO cats_passed("user_id", "variant_id") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'),1);
+EOF
+sudo lxc-attach -n gigi -- systemctl stop gigi-proxy.service
+
+csrf=$(mcurl login -c $folder/cookie-jar | csrf)
+open-jar $folder/cookie-jar
+mcurl login -c $folder/cookie-jar --data-urlencode "username=$adminEmail" --data-urlencode "password=$adminPw" --data-urlencode "csrf=$csrf" &>/dev/null
+open-jar $folder/cookie-jar
+
+echo "Creating organisation"
+csrf=$(mcurl "orga/new" | csrf)
+mgmOid=$(mcurl "orga/new" -v -d "O=SomeCA&L=town&ST=state&C=AT&contact=ce%40email.org&comments=&action=new&csrf=$csrf" 2>&1 | grep "< Location: " | sed "s_.*/\([0-9]*\)[^0-9]*_\1_")
+if ! grep -q '^[0-9]\+$' <<< $mgmOid; then
+    echo "Got an Organisation ID that is not a number: $mgmOid." >&2
+    exit 1
+fi
+printf "Management Organisation id is \"%s\"\n" "$mgmOid"
+
+echo "add self as orgadmin for organisation"
+csrf=$(mcurl orga/$mgmOid | csrf "head -n 2" "tail -n 1")
+mcurl orga/$mgmOid --data-urlencode "email=$adminEmail" --data-urlencode "master=y" --data-urlencode "do_affiliate=Add" --data-urlencode "csrf=$csrf" &>/dev/null
+echo "adding org-domain"
+csrf=$(mcurl orga/$mgmOid | csrf "head -n 4" "tail -n 1")
+domainName="$hostname"
+mcurl orga/$mgmOid -d "domain=$domainName&addDomain=action&csrf=$csrf" &> /dev/null
+
+csrf=$(mcurl account/details | csrf "tail -1")
+mcurl account/details -d "orgaForm=orga&org%3A$mgmOid&csrf=$csrf" &> /dev/null
+
+echo "Configuring pings for the domain"
+domain=$(mcurl "account/domains" | grep "/account/domains/" | sed "s_.*/\([0-9]\+\)'.*_\1_")
+if ! grep -q '^[0-9]\+$' <<< $domain; then
+    echo "Got a Domain ID that is not a number: $domain." >&2
+    exit 1
+fi
+
+csrf=$(mcurl "account/domains/$domain" | tee $folder/domain | csrf "tail -n 1")
+
+token=$(grep pre $folder/domain | tail -n 1 | sed "s_.*>\([a-zA-Z0-9]*\)<.*_\1_")
+name=$(grep "content available under" $folder/domain | sed "s_.*/cacert-\([a-zA-Z0-9]*\)\\.txt.*_\1_")
+
+sudo mkdir -p /data/nginx/challenge
+printf "%s" "$token" | sudo tee /data/nginx/challenge/cacert-$name.txt > /dev/null
+
+openssl req -newkey rsa:4096 -subj "/CN=$domainName/OU=$token" -nodes -out $folder/self-req -keyout $folder/self-priv
+openssl x509 -req -in $folder/self-req -signkey $folder/self-priv -out $folder/self-cert -extfile <(printf "extendedKeyUsage = clientAuth, serverAuth\n")
+
+cp $folder/self-cert modules/gigi/files/gigi.crt
+setfacl -m user:puppet:r $folder/self-priv
+cp --preserve=all $folder/self-priv modules/gigi/files/gigi.key
+sudo lxc-attach -n front-nginx -- puppet agent --test --verbose
+
+mcurl "account/domains/$domain" -d "HTTPType=y&SSLType=y&ssl-type-0=direct&ssl-port-0=443&ssl-type-1=direct&ssl-port-1=&ssl-type-2=direct&ssl-port-2=&ssl-type-3=direct&ssl-port-3=&csrf=$csrf" > /dev/null
+
+echo "Pings configured... waiting"
+sleep 5
+mcurl "account/domains/$domain" > $folder/domainStatus
+
+echo "Issuing certificate for web"
+
+function issue {
+    options=$1
+    csrf=$(mcurl "account/certs/new" | csrf "head -n 1")
+
+    openssl req -newkey rsa:4096 -subj "/CN=blabla" -nodes -out $folder/req -keyout $folder/priv
+    encoded=$(tr '\n' '?' < $folder/req | sed "s/=/%3D/g;s/+/%2B/g;s/\?/%0A/g")
+
+    mcurl account/certs/new -d "CSR=$encoded&process=Next&csrf=$csrf" > /dev/null
+
+    serial=$(mcurl account/certs/new -d "$options&OU=&hash_alg=SHA256&validFrom=now&validity=2y&login=1&description=&process=Issue+Certificate&csrf=$csrf" -v 2>&1 | tee $folder/certlog | grep "< Location: " | sed "s_.*/\([a-f0-9]*\)[^0-9]*_\1_")
+    echo "Certificate: $serial"
+    if [[ $serial != "" ]]; then
+        echo "installing"
+        mcurl "account/certs/$serial.crt?chain&noAnchor" > $folder/cert.crt
+        return 0;
+    else
+        return 1;
+    fi
+}
+if issue "profile=server-orga&CN=&SANs=dns%3Awww.$domainName%2Cdns%3Astatic.$domainName%2Cdns%3Aapi.$domainName%2Cdns%3Asecure.$domainName"; then
+    cp $folder/cert.crt modules/gigi/files/gigi.crt
+    setfacl -m user:puppet:r $folder/priv
+    cp --preserve=all $folder/priv modules/gigi/files/gigi.key
+    echo "reloading cert"
+    sudo lxc-attach -n front-nginx -- puppet agent --test --verbose
+else
+    echo "refusing to update"
+fi
+
+if issue "profile=mail-orga&CN=Gigi+System&SANs=email%3Agigi@$domainName"; then
+    echo "great!"
+    keystorepw=$(head -c 15 /dev/urandom | base64)
+    openssl pkcs12 -export -name "mail" -in $folder/cert.crt -inkey $folder/priv -CAfile modules/nre/files/config/ca/root.crt -password file:<(printf '%s' "$keystorepw") | sudo tee modules/gigi/files/keystore.pkcs12 > /dev/null
+    printf '%s' "$keystorepw" | sudo tee modules/gigi/files/keystorepw > /dev/null
+else
+    echo "refusing to update"
+fi
+echo "marking gigi ready"
+echo yes | sudo lxc-attach -n gigi tee /gigi-ready > /dev/null
+sudo lxc-attach -n gigi -- puppet agent --test --verbose
+
+sudo lxc-attach -n front-nginx systemctl start puppet.service
+sudo lxc-attach -n gigi systemctl start puppet.service

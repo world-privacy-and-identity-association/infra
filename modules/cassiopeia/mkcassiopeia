@@ -1,0 +1,31 @@
+#!/bin/bash
+cd -- "$(dirname -- "$0")"
+function genCA {
+    [[ -d demoCA ]] && return
+    mkdir demoCA
+    openssl req -new -newkey rsa:4096 -nodes -keyout demoCA/ca.key -out demoCA/ca.csr -subj "/CN=signerCA"
+    mkdir demoCA/newcerts
+    touch demoCA/index.txt
+    echo 01 > demoCA/serial
+    echo "unique_subject = no" > demoCA/index.txt.attr
+    openssl ca -config mkcassiopeia-openssl.cnf -create_serial -out demoCA/ca.crt -days 700 -batch -keyfile demoCA/ca.key \
+            -selfsign -policy policy_anything -extensions v3_ca -infiles demoCA/ca.csr
+}
+function genKey {
+    local name="$1"
+    local eku="$2"
+    local keyName="$3"
+    [[ -f "$keyName.crt" ]] && return
+    openssl req -new -newkey rsa:4096 -nodes -subj "/CN=$name" -keyout "$keyName.key" -out "$keyName.csr"
+    chmod +r "$keyName.key"
+    openssl ca -config mkcassiopeia-openssl.cnf -days 700 \
+            -batch -extfile <(printf "basicConstraints=critical, CA:FALSE\nkeyUsage=critical, digitalSignature, keyEncipherment, keyAgreement\nextendedKeyUsage=$eku\n") \
+            -policy policy_anything -out "$keyName.crt" -keyfile demoCA/ca.key -cert demoCA/ca.crt -infiles "$keyName.csr"
+
+
+}
+genCA
+mkdir -p files
+cp -v demoCA/ca.crt files/ca.crt
+genKey signer-server serverAuth files/signer_server
+genKey signer-client clientAuth files/signer_client

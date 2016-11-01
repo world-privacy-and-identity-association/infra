@@ -1,0 +1,13 @@
+<% if ($signerLocation == 'self') { %>
+serialPath=/var/lib/cassiopeia/serial
+<% } else { %>
+serialPath=<%=$signerLocation%>
+<% } %>
+sql.host=<%=$gigi_pg_ip%>
+sql.user=gigi
+sql.password=<%=$gigi_pg_password%>
+sql.database=gigi
+key.directory=/var/lib/wpia-gigi/keys
+
+crlPrefix=http://g2.crl.<%=$systemDomain%>
+crtPrefix=http://g2.crt.<%=$systemDomain%>

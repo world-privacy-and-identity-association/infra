@@ -1,0 +1,96 @@
+#!/bin/bash
+com="$SSH_ORIGINAL_COMMAND"
+if [[ "$UID" == 0 ]]; then
+    echo "Run script as non-root-user"
+    exit
+fi
+if [[ "$com" == "ask quiz certs" ]]; then
+    folder=$(mktemp -d)
+    # In argument 1 is the path of the certificates to update: $1.crt and $1.key
+    function update_cert {
+        name=$1
+        if [[ -f $name.crt ]] && openssl x509 -checkend $((365*24*60*60)) -in $name.crt > /dev/null; then
+            echo "SKIP $name"
+        else
+            echo "ISSUE $name"
+            openssl req -newkey rsa:4096 -subj "/CN=will-be-ignored" -nodes -out $folder/web.req -keyout $folder/web.key 2>/dev/null
+            cat $folder/web.req
+            read -r response
+            if [[ "$response" == "SUCCESS" ]]; then
+                # read certificate count
+                read -r len
+                printf '' > $folder/web.crt
+                for ((i=0;i<len;i++)); do
+                    # read one certificate
+                    openssl x509 -out $folder/web1.crt
+                    cat $folder/web1.crt >> $folder/web.crt
+                done
+                rm $folder/web1.crt
+                crt=$(openssl x509 -in $folder/web.crt -noout -modulus)
+                key=$(openssl rsa -in $folder/web.key -noout -modulus)
+                if [[ $crt == $key ]]; then
+                    echo "SUCCESS: $len";
+                    cp $folder/web.crt $name.crt
+                    chmod +r $folder/web.key
+                    cp $folder/web.key $name.key
+                else
+                    echo "MISMATCH";
+                fi
+            else
+                printf "%s\n" "$response"
+            fi
+        fi
+    }
+    update_cert "modules/quiz/files/web"
+    update_cert "modules/quiz/files/client"
+    update_cert "modules/gigi/files/gigi"
+    update_cert "modules/gigi/files/client"
+    echo "DONE"
+    [[ -f $folder/web.crt ]] && rm $folder/web.crt
+    [[ -f $folder/web.req ]] && rm $folder/web.req
+    [[ -f $folder/web.key ]] && rm $folder/web.key
+    rmdir $folder
+elif [[ "$com" == "reload quiz certs" ]]; then
+    sudo puppet apply /etc/puppet/code/environments/production/manifests --verbose
+    sudo lxc-attach -n front-nginx -- puppet agent --verbose --test
+    sudo lxc-attach -n quiz -- puppet agent --verbose --test
+    sudo lxc-attach -n gigi -- puppet agent --verbose --test
+elif [[ "$com" == "update crls" ]]; then
+    if ! tar xv -C /data/crl; then
+        echo "requiring tar"
+        exit;
+    fi
+    echo "Updating crls"
+    mkdir -p /data/crl/htdocs/g2
+    for i in /data/crl/*.crl; do
+        if ! [[ -h /data/crl/htdocs/g2/${i#/data/crl/} ]]; then
+            ln -vs /data-crl/${i#/data/crl/} /data/crl/htdocs/g2/${i#/data/crl/}
+        fi
+    done
+
+    for i in  /data/gigi-crl/*/ca.crl; do
+        j=$(echo $i | sed "s#^/data/gigi-crl/\([a-zA-Z]*\)_\([0-9]*\)_\([0-9]\)/ca.crl#\2/\1-\3.crl#")
+        mkdir -p /data/crl/htdocs/g2/$(dirname $j)
+        if ! [[ -h /data/crl/htdocs/g2/$j ]]; then
+            ln -vs /data-crl-gigi/${i#/data/gigi-crl/} /data/crl/htdocs/g2/$j
+        fi
+    done
+
+    mkdir -p /data/crl/crt-htdocs/g2
+    for i in modules/nre/files/config/ca/*; do
+        [[ $i == *_* ]] && continue
+        if ! [[ -f /data/crl/crt-htdocs/g2/$(basename $i) ]]; then
+            cp -v $i /data/crl/crt-htdocs/g2/$(basename $i)
+        fi
+    done
+    for i in  /data/gigi-crl/*/ca.crt; do
+        j=$(echo $i | sed "s#^/data/gigi-crl/\([a-zA-Z]*\)_\([0-9]*\)_\([0-9]\)/ca.crt#\2/\1-\3.crt#")
+        mkdir -p /data/crl/crt-htdocs/g2/$(dirname $j)
+        if ! [[ -h /data/crl/crt-htdocs/g2/$j ]]; then
+            ln -vs /data-crl-gigi/${i#/data/gigi-crl/} /data/crl/crt-htdocs/g2/$j
+        fi
+    done
+
+else
+    printf "%s\n" $com
+fi

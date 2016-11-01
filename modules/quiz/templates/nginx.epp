@@ -1,0 +1,20 @@
+server {
+    listen       0.0.0.0:443 ssl;
+    server_name  quiz.<%=$systemDomain%>;
+
+    ssl_certificate /etc/ssl/private/quiz.crt;
+    ssl_certificate_key /etc/ssl/private/quiz.key;
+
+    ssl_client_certificate /etc/ssl/root.crt;
+    ssl_verify_client on;
+    ssl_verify_depth 4;
+
+    location / {
+        proxy_pass  http://<%=$ips[quiz]%>;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Real-Proto https;
+        proxy_set_header X-Client-Serial "$ssl_client_serial";
+    }
+}
+

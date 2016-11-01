@@ -1,0 +1,14 @@
+#!/bin/bash
+
+com="$SSH_ORIGINAL_COMMAND"
+if [[ "$com" == "ask quiz certs" ]]; then
+    exec ssh <%=$administrativeUser%>@10.0.3.1 "ask quiz certs"
+elif [[ "$com" == "reload quiz certs" ]]; then
+    # requires sudo --> requires terminal
+    exec ssh -t <%=$administrativeUser%>@10.0.3.1 "reload quiz certs"
+elif [[ "$com" == "update crls" ]]; then
+    exec ssh  <%=$administrativeUser%>@10.0.3.1 "update crls"
+else
+    echo $com
+fi
+

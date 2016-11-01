@@ -1,0 +1,109 @@
+#!/bin/bash
+
+mkdir -p .join/
+
+if ! [[ -z "$TMUX" ]]; then
+    printf >&2 'Already in tmux, unset TMUX to force nesting\n'
+    exit 1
+fi
+
+name="$1"
+if [[ $name == "" ]]; then
+    printf >&2 'Usage: %s NAME\n' "$0"
+    exit 1
+fi
+
+set -o noclobber
+
+# duplicate stderr to fd 3
+exec 3>&2
+# kill stderr to hide noclobber errors
+exec 2>/dev/null
+
+function sessionname {
+    if (($# != 2)); then
+        printf >&3 'sessionname requires exactly two arguments\n'
+        exit 1
+    fi
+    if [[ "$1" < "$2" ]]; then
+        printf '%s\n' "$1-$2"
+    else
+        printf '%s\n' "$2-$1"
+    fi
+}
+
+if printf '%s\n' "$name" > .join/join1; then
+    # we're the first
+    name1=$name
+    trap 'rm -f .join/join1' EXIT
+    # wait for second
+    printf 'Waiting for second client...\n'
+    while ! [[ -f .join/join2 ]]; do
+        sleep 1
+    done
+    read -r name2 < .join/join2
+    trap "echo false >| .join/$name1-$name2; rm -f .join/join1" EXIT
+    read -p "Do you want to collaborate with $name2? [Y/n] " -r response 2>&3
+    if [[ "$response" =~ ^[Nn] ]]; then
+        echo false >| .join/"$name1-$name2"
+        exit 1
+    else
+        # set up session
+        if ! tmux has-session -t "$(sessionname "$name1" "$name2")" &> /dev/null; then
+            tmux new-session -s "$(sessionname "$name1" "$name2")" -d
+            tmux set-hook -t "$(sessionname "$name1" "$name2")" client-detached "run 'tmux detach-client -s $(sessionname "$name1" "$name2"); true'"
+        fi
+        echo true >| .join/"$name1-$name2"
+    fi
+    rm -f .join/join1 .join/join2
+    # ready
+else
+    read -r name1 < .join/join1
+    read -p "Do you want to collaborate with $name1? [Y/n] " -r response 2>&3
+    if [[ "$response" =~ ^[Nn] ]]; then
+        exit 1
+    fi
+    if printf '%s\n' "$name" > .join/join2; then
+        # we're the second
+        trap 'rm -f .join/join2' EXIT
+        read -r name1 < .join/join1
+        name2=$name
+        if [[ "$name1" == "$name2" ]]; then
+            printf >&3 'same client twice not allowed, exiting\n'
+            exit 1
+        fi
+        # wait for first to acknowledge collaboration
+        while ! [[ -f .join/"$name1-$name2" ]]; do
+            if ! read -r name1_ < .join/join1 || ! [[ "$name1_" == "$name1" ]]; then
+                printf >&3 '%s has aborted collaboration.\n' "$name1"
+                exit 1
+            fi
+            sleep 1
+        done
+        read -r ack < ".join/$name1-$name2"
+        rm -f ".join/$name1-$name2"
+        if [[ $ack != true ]]; then
+            printf >&3 '%s does not want to collaborate with you\n' "$name1"
+            exit 1
+        fi
+    else
+        # we're the third one, nope
+        printf >&3 'two clients already connected, exiting\n'
+        exit 1
+    fi
+fi
+if [[ "$name1" == "$name2" ]]; then
+    printf >&3 'same client twice not allowed, exiting\n'
+    exit 1
+fi
+(
+    while tmux has-session -t "$(sessionname "$name1" "$name2")"; do
+        sleep 5
+        [[ -f .join/"$name1-$name2" ]] && rm -f ".join/$name1-$name2"
+        if (($(tmux list-clients -t "$(sessionname "$name1" "$name2")" | wc -l)!=2)); then
+            tmux detach-client -s "$(sessionname "$name1" "$name2")"
+            break
+        fi
+    done
+) &
+exec tmux attach -t "$(sessionname "$name1" "$name2")"

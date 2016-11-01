@@ -1,0 +1,3 @@
+command="/home/admin/join lucas",no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGT7rQdjhH3nfFcAciyLLhR9yoVKw/V7Yo2SwiGpYl9C lucas@pippin
+command="/home/admin/join felix",no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII9rX4mF7we1dwTX5/6FCI2zIjOOLZVxeVzz9i58uSO7 Felix@Schneeeule
+command="/home/admin/join felix2",no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHOETXyx/4HYYbU+VG14SLswXQfWDbf+wBqFoKF711U/ Felix2@Schneeeule

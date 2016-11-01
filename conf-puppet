@@ -1,0 +1,24 @@
+#!/bin/bash
+force=false
+if [[ "$1" == "--force" ]]; then
+    force=true
+fi
+oldDomain=$(sed -n "/\$systemDomain/ { s/\$systemDomain = '\([^']*\)'/\1/; p }" environments/production/manifests/ip.pp)
+if $force || [[ "$oldDomain" == "unknown" ]]; then
+    read -rp "Your Domain: " domain
+    sed -i "s/\$systemDomain = '[^']*'/\$systemDomain = '$domain'/" environments/production/manifests/ip.pp
+    oldDomain="$systemDomain"
+fi
+
+if $force || grep -q "gigi_translation.*unknown" environments/production/manifests/ip.pp; then
+    read -rp "Your Path To Gigi Translation: " gigi
+    sed -i "s!\$gigi_translation = '[^']*'!\$gigi_translation = '$gigi'!" environments/production/manifests/ip.pp
+fi
+
+if $force || grep -q "internet_iface.*unknown" environments/production/manifests/ip.pp; then
+    ip a
+    read -rp "Your Interface to the Internet: " iface
+    sed -i "s/\$internet_iface = '[^']*'/\$internet_iface = '$iface'/" environments/production/manifests/ip.pp
+fi
+
+sed -i "s/\$administrativeUser = '[^']*'/\$administrativeUser = '${SUDO_USER:-$USER}'/" environments/production/manifests/ip.pp

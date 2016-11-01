@@ -1,0 +1,23 @@
+server {
+    listen       0.0.0.0:80;
+    listen       0.0.0.0:443 ssl;
+    server_name  g2.crl.<%=$systemDomain%>;
+    ssl_certificate /etc/ssl/private/gigi.crt;
+    ssl_certificate_key /etc/ssl/private/gigi.key;
+
+    location / {
+        root /data-crl/htdocs;
+    }
+}
+
+server {
+    listen       0.0.0.0:80;
+    listen       0.0.0.0:443 ssl;
+    server_name  g2.crt.<%=$systemDomain%>;
+    ssl_certificate /etc/ssl/private/gigi.crt;
+    ssl_certificate_key /etc/ssl/private/gigi.key;
+
+    location / {
+        root /data-crl/crt-htdocs;
+    }
+}

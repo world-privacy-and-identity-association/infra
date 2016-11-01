@@ -1,0 +1,42 @@
+#!/bin/bash
+#sudo apt-get install sudo git
+#sudo apt-get install emacs-nox tmux
+#git clone ...
+if ((UID != 0)); then
+    printf >&2 '%s: must be run as root\n' "$0"
+    exit 1
+fi
+. conf-puppet
+
+if ! [[ -x /usr/bin/puppet ]]; then
+    apt-get update
+    apt-get install -y puppet puppet-master
+fi
+
+if ! [[ -h /etc/puppet/code/modules ]]; then
+    ln -s $PWD/modules /etc/puppet/code/modules
+    ln -s $PWD/environments /etc/puppet/code/environments
+fi
+if grep -q "^search\|^domain" /etc/resolv.conf; then
+    echo "Removing domain from resolv.conf"
+    sed -i "/^search\|^domain/d" /etc/resolv.conf
+    systemctl restart puppet-master
+fi
+
+if ! grep -q host01 /etc/hosts; then
+    echo "Changing hostname"
+    hostnamectl set-hostname host01
+    echo "127.0.0.1 host01" >> /etc/hosts
+    systemctl restart puppet-master
+    echo "Please open a new shell (hostname) and restart bootstrap"
+    exit
+fi
+
+
+puppet module install puppetlabs-firewall
+puppet module install puppetlabs-stdlib
+puppet module install puppetlabs-apt
+puppet module install puppetlabs-postgresql
+puppet module install puppetlabs-mysql
+
+puppet apply /etc/puppet/code/environments/production/manifests --debug

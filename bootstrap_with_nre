@@ -1,0 +1,25 @@
+#!/bin/bash
+sudo apt-get install libfaketime
+if ! [[ -d nre ]]; then
+    read -rp "URL to NRE git repo: " nre
+    git clone "$nre" nre
+    cd nre
+    read -rp "Update your Organisation name..." tmp
+    for command in "$VISUAL" "$EDITOR" emacs nano vim vi ex ed; do
+        "$command" commonFunctions.bash &>/dev/null && break
+    done
+    . conf-puppet
+    cat >> config <<EOF
+DOMAIN=$oldDomain
+EOF
+    read -rp "Years to issue your certificates for: (e.g. 1948 1950): " years
+    ./all root $years
+    cd ..
+    mkdir -p modules/nre/files
+    for i in nre/generated/gigi-*.tar.gz; do tar xvf $i -C modules/nre/files; done
+    mkdir -p modules/cassiopeia_signer/files
+    for i in nre/generated/signer-server-*.tar.gz; do tar xvf $i -C modules/cassiopeia_signer/files; done
+    mkdir -p modules/cassiopeia_client/files
+    for i in nre/generated/signer-client-*.tar.gz; do tar xvf $i -C modules/cassiopeia_client/files; done
+fi
+exec sudo ./bootstrap

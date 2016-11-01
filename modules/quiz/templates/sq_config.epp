@@ -1,0 +1,6 @@
+<?php
+                $sq_base_url='//quiz.<%=$systemDomain%>/';
+                $sq_hostname='localhost';
+                $sq_dbname='quiz';
+                $sq_dbusername='quiz';
+                $sq_dbpassword='<%=$passwords[quiz-mysql][quiz]%>';
