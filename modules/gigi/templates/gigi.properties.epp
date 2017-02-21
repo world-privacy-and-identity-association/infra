@@ -1,7 +1,4 @@
-name.static=static.<%=$systemDomain%>
-name.secure=secure.<%=$systemDomain%>
-name.www=www.<%=$systemDomain%>
-name.api=api.<%=$systemDomain%>
+name.suffix=<%=$systemDomain%>
 
 gigi.uid=-1
 gigi.gid=-1
