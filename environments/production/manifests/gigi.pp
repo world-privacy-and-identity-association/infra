@@ -81,7 +81,7 @@ node gigi {
     provider => 'shell',
     path => '',
     cwd => '/var/lib/wpia-gigi/config',
-    unless => '/usr/bin/[ /var/lib/wpia-gigi/keys/keystore.pkcs12 -ot /etc/wpia/gigi/conf.tar ] && /usr/bin/[ /var/lib/wpia-gigi/config/cacerts.jks -ot /etc/wpia/gigi/conf.tar ]',
+    unless => '/usr/bin/[ /var/lib/wpia-gigi/keys/keystore.pkcs12 -ot /etc/wpia/gigi/conf.tar ] && /usr/bin/[ /var/lib/wpia-gigi/config/cacerts.jks -ot /etc/wpia/gigi/conf.tar ] && /usr/bin/[ /var/lib/wpia-gigi/config/gigi.properties -ot /etc/wpia/gigi/conf.tar ]',
     subscribe => [File['/var/lib/wpia-gigi/config/truststorepw'],Exec['keytool for /var/lib/wpia-gigi/config/cacerts.jks'],File['/var/lib/wpia-gigi/config/gigi.properties']],
     require => File['/etc/wpia/gigi']
   }
@@ -97,7 +97,8 @@ node gigi {
   }
   exec {'/gigi-ready':
     creates => '/gigi-ready',
-    command =>'/bin/false'
+    command =>'/bin/false',
+    require => Exec['tar for gigi-conf']
   }
   exec{'alexa':
     command => '/usr/bin/gigi fetch-alexa /var/lib/wpia-gigi/blacklist.dat 100',

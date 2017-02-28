@@ -1,4 +1,6 @@
 name.suffix=<%=$systemDomain%>
+appName=SomeCA
+appIdentifier=someca
 
 gigi.uid=-1
 gigi.gid=-1

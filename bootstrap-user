@@ -31,6 +31,10 @@ function silent_read {
 #execute a registration in gigi. If "$1" == "nopass" a password is not asked for but chosen at random.
 function register {
     csrf=$(mcurl register -c $folder/cookie-jar | csrf)
+    if ! [[ -f $folder/cookie-jar ]]; then
+        echo "error, could not start gigi"
+        exit 1
+    fi
     open-jar $folder/cookie-jar
     silent_read "First Name: " fname
     silent_read "Last Name: " lname
@@ -115,7 +119,7 @@ fi
 echo "granting initial bootstrapping-rights"
 sudo lxc-attach -n postgres-primary -- su -c "psql -d gigi" postgres <<EOF
 INSERT INTO user_groups("user","permission","grantedby") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'),'supporter',(SELECT "id" FROM "users" WHERE "email"='$adminEmail'));
-INSERT INTO user_groups("user","permission","grantedby") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'),'orgassurer',(SELECT "id" FROM "users" WHERE "email"='$adminEmail'));
+INSERT INTO user_groups("user","permission","grantedby") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'),'org-agent',(SELECT "id" FROM "users" WHERE "email"='$adminEmail'));
 INSERT INTO notary("from","to","points","location","when","date") VALUES((SELECT "id" FROM "users" WHERE "email"='$secondaryEmail'), (SELECT "preferredName" FROM "users" WHERE "email"='$adminEmail'), 100, 'initial', CURRENT_TIMESTAMP, '$(date +%Y-%m-%d)');
 INSERT INTO notary("from","to","points","location","when","date") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'), (SELECT "preferredName" FROM "users" WHERE "email"='$secondaryEmail'), 100, 'initial', CURRENT_TIMESTAMP, '$(date +%Y-%m-%d)');
 INSERT INTO cats_passed("user_id", "variant_id") VALUES((SELECT "id" FROM "users" WHERE "email"='$adminEmail'),1);
@@ -157,10 +161,10 @@ fi
 csrf=$(mcurl "account/domains/$domain" | tee $folder/domain | csrf "tail -n 1")
 
 token=$(grep pre $folder/domain | tail -n 1 | sed "s_.*>\([a-zA-Z0-9]*\)<.*_\1_")
-name=$(grep "content available under" $folder/domain | sed "s_.*/cacert-\([a-zA-Z0-9]*\)\\.txt.*_\1_")
+name=$(grep "content available under" $folder/domain | sed "s_.*/\([a-zA-Z0-9]*\)\\.txt.*_\1_")
 
-sudo mkdir -p /data/nginx/challenge
-printf "%s" "$token" | sudo tee /data/nginx/challenge/cacert-$name.txt > /dev/null
+sudo mkdir -p /data/nginx/challenge/.well-known/someca-challenge
+printf "%s" "$token" | sudo tee /data/nginx/challenge/.well-known/someca-challenge/$name.txt > /dev/null
 
 openssl req -newkey rsa:4096 -subj "/CN=$domainName/OU=$token" -nodes -out $folder/self-req -keyout $folder/self-priv
 openssl x509 -req -in $folder/self-req -signkey $folder/self-priv -out $folder/self-cert -extfile <(printf "extendedKeyUsage = clientAuth, serverAuth\n")
