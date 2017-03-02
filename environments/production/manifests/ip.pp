@@ -17,6 +17,8 @@ $passwords = {
    }
 }
 
+$testServer = 'false'
+
 $internet_iface = 'unknown'
 $systemDomain = 'unknown'
 $gigi_translation = 'unknown'

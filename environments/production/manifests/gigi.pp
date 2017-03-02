@@ -5,14 +5,18 @@ node gigi {
   file { "${::puppet_vardir}/debconf/":
      ensure => 'directory'
   }
+  $gigi_pkg = $testServer ? {
+    'true' => 'wpia-gigi-testing',
+    default => 'wpia-gigi'
+  }
   file { "${::puppet_vardir}/debconf/gigi-lang.debconf":
      ensure => 'present',
-     content => "wpia-gigi-testing     wpia-gigi-testing/fetch-locales-command       string  gigi fetch-locales $gigi_translation"
+     content => "$gigi_pkg     $gigi_pkg/fetch-locales-command       string  gigi fetch-locales $gigi_translation"
   } ->
-  exec { 'debconf-gigi-testing':
+  exec { 'debconf-gigi':
     path => "/usr/bin",
     command => "/usr/bin/debconf-set-selections < ${::puppet_vardir}/debconf/gigi-lang.debconf",
-    unless => "/usr/bin/debconf-get-selections | /bin/grep -F '$gigi_translation'"
+    unless => "/usr/bin/debconf-get-selections | /bin/grep -F '$gigi_translation' | /bin/grep -F '$gigi_pkg/fetch-locales'"
   }
 
   class{'apt':}
@@ -25,8 +29,8 @@ node gigi {
     ensure => 'present',
     notify => Exec['apt_update']
   }
-  package { 'wpia-gigi-testing':
-    require => [Exec['debconf-gigi-testing'],Exec['apt_update']],
+  package { $gigi_pkg:
+    require => [Exec['debconf-gigi'],Exec['apt_update']],
     ensure => 'installed',
   }
   $gigi_pg_ip = $ips[postgres];
@@ -57,7 +61,7 @@ node gigi {
   exec {'keytool for /var/lib/wpia-gigi/config/cacerts.jks':
     cwd => '/var/lib/wpia-gigi/config/ca',
     refreshonly => true,
-    require => Package['wpia-gigi-testing'],
+    require => Package[$gigi_pkg],
     command => '/bin/rm -f ../cacerts.jks && /usr/bin/keytool -importcert -keystore ../cacerts.jks -noprompt -storepass changeit -file root.crt -alias root && for i in assured.crt codesign.crt env.crt orga.crt orgaSign.crt unassured.crt *_*.crt; do /usr/bin/keytool -importcert -keystore ../cacerts.jks -storepass changeit -file "$i" -alias "${i%.crt}"; done',
   }
   file {'/var/lib/wpia-gigi/config/truststorepw':
@@ -88,12 +92,12 @@ node gigi {
   file {'/var/lib/wpia-gigi/keys/crt':
     ensure => 'directory',
     owner => 'gigi',
-    require => Package['wpia-gigi-testing']
+    require => Package[$gigi_pkg]
   }
   file {'/var/lib/wpia-gigi/keys/csr':
     ensure => 'directory',
     owner => 'gigi',
-    require => Package['wpia-gigi-testing']
+    require => Package[$gigi_pkg]
   }
   exec {'/gigi-ready':
     creates => '/gigi-ready',
@@ -103,12 +107,12 @@ node gigi {
   exec{'alexa':
     command => '/usr/bin/gigi fetch-alexa /var/lib/wpia-gigi/blacklist.dat 100',
     creates => '/var/lib/wpia-gigi/blacklist.dat',
-    require => [File['/var/lib/wpia-gigi'],Package['wpia-gigi-testing']]
+    require => [File['/var/lib/wpia-gigi'],Package[$gigi_pkg]]
   } -> service{'gigi-proxy.socket':
     ensure => 'running',
     provider => 'systemd',
     subscribe => [Exec['tar for gigi-conf'],File['/var/lib/wpia-gigi/config/profiles']],
-    require => [Package['wpia-gigi-testing'], File['/var/lib/wpia-gigi/keys/crt'], File['/var/lib/wpia-gigi/keys/csr'], Exec['/gigi-ready']]
+    require => [Package[$gigi_pkg], File['/var/lib/wpia-gigi/keys/crt'], File['/var/lib/wpia-gigi/keys/csr'], Exec['/gigi-ready']]
   }
   package{'cacert-cassiopeia':
     ensure => 'installed',

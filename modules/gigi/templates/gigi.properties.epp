@@ -21,3 +21,8 @@ emailProvider.smtpHost=<%=$ips[exim]%>
 emailProvider.smtpPort=25
 
 highFinancialValue=blacklist.dat
+
+<% if($testServer == "true") { %>
+testing=true
+emailProvider=club.wpia.gigi.pages.Manager$MailFetcher
+<% } %>
