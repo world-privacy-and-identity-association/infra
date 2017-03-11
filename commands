@@ -45,6 +45,7 @@ if [[ "$com" == "ask quiz certs" ]]; then
     update_cert "modules/quiz/files/client"
     update_cert "modules/gigi/files/gigi"
     update_cert "modules/gigi/files/client"
+    update_cert "modules/gitweb/files/web"
     echo "DONE"
     [[ -f $folder/web.crt ]] && rm $folder/web.crt
     [[ -f $folder/web.req ]] && rm $folder/web.req

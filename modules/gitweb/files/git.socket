@@ -1,0 +1,10 @@
+[Unit]
+Description=Socket for git daemon
+Documentation=man:git-daemon(1)
+
+[Socket]
+ListenStream=9418
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

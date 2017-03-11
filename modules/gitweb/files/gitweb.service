@@ -1,0 +1,32 @@
+[Unit]
+Description=git web server
+Documentation=man:gitweb(1) man:gitweb.conf(5)
+
+[Service]
+ExecStart=/usr/local/bin/gitweb.cgi --fastcgi
+# gitweb kills itself every 100 requests or so, expects to be restarted externally
+Restart=on-success
+# place the socket in the bind-mounted directory that’s also bind-mounted into nginx’ container
+Environment=FCGI_SOCKET_PATH=/gitweb-socket/gitweb
+# set UTF-8 locale
+Environment=LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+# don’t run gitweb as root
+User=git
+# allow web server to read the socket by making it world-accessible
+UMask=0000
+
+# sandboxing options, see systemd.exec(5)
+NoNewPrivileges=yes
+PrivateNetwork=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectHome=yes
+ReadOnlyPaths=/
+ReadWritePaths=/gitweb-socket/
+SystemCallArchitectures=native
+RestrictRealtime=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+
+[Install]
+WantedBy=multi-user.target

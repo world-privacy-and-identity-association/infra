@@ -65,4 +65,13 @@ node front-nginx {
   service {'nginx':
     ensure => 'running'
   }
+  #for gitweb hosting
+  package{'git':
+    ensure=>'installed'
+  }
+  front_vhost{'gitweb':
+    source => 'gitweb/nginx.epp',
+    notify => Service['nginx'],
+    crt => 'gitweb/web'
+  }
 }

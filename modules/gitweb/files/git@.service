@@ -1,0 +1,22 @@
+[Unit]
+Description=git daemon
+Documentation=man:git-daemon(1)
+
+[Service]
+ExecStart=/usr/bin/git daemon --inetd --verbose --export-all --base-path=/srv/git
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+User=git
+
+# sandboxing options, see systemd.exec(5)
+NoNewPrivileges=yes
+PrivateNetwork=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectHome=yes
+ReadOnlyDirectories=/
+SystemCallArchitectures=native
+RestrictRealtime=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes

@@ -5,7 +5,8 @@ $ips = {
    exim => '10.0.3.17',
    hop => '10.0.3.18',
    quiz => '10.0.3.19',
-   postgres => '10.0.3.14'}
+   postgres => '10.0.3.14',
+   gitweb => '10.0.3.20'}
 
 $passwords = {
    postgres => {

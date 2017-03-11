@@ -24,6 +24,15 @@ class my_fw::post {
     table    => 'nat',
     chain    => 'PREROUTING',
   } ->
+  firewall { '80 dnat-git':
+    proto  => 'tcp',
+    dport  => '9418',
+    jump => 'DNAT',
+    todest => "${$ips[gitweb]}:9418",
+    iniface => $internet_iface,
+    table    => 'nat',
+    chain    => 'PREROUTING',
+  } ->
   firewall { '80 dnat-htop-ssh':
     proto  => 'tcp',
     dport  => '2222',
@@ -92,11 +101,13 @@ if $signerLocation == 'self' {
     lxc::container { 'front-nginx':
         contname => 'front-nginx',
         ip => $ips[front-nginx],
-        dir => ["/data", "/data-crl", '/data-crl-gigi'],
+        dir => ["/data", "/data-crl", '/data-crl-gigi', '/gitweb-socket', '/srv/git'],
         bind => {
           "/data/nginx" => {target => "data", option => ",ro"},
           "/data/crl" => {target => "data-crl", option => ",ro"},
-          "/data/gigi-crl" => {target => "data-crl-gigi", option => ",ro"}
+          "/data/gigi-crl" => {target => "data-crl-gigi", option => ",ro"},
+          "/run/gitweb-socket" => {target => 'gitweb-socket'},
+          "/data/git" => { 'target' => "srv/git", option => ",ro"}
         },
         require => File['/data/nginx', '/data/crl/htdocs', '/data/gigi-crl']
     }
@@ -109,6 +120,10 @@ if $signerLocation == 'self' {
     file { '/data/crl':
       ensure => 'directory',
       owner => $administrativeUser
+    }
+    file { '/data/git':
+      ensure => 'directory',
+      owner => $administrativeUser,
     }
     file { '/data/gigi-crl':
       ensure => 'directory',
@@ -173,6 +188,19 @@ if $signerLocation == 'self' {
     lxc::container { 'quiz':
         contname => 'quiz',
         ip => $ips[quiz]
+    }
+    file{'/run/gitweb-socket':
+        ensure => 'directory'
+    }
+    lxc::container { 'gitweb':
+        require => File['/data/git', '/run/gitweb-socket'],
+        contname => 'gitweb',
+        dir => ['/gitweb-socket', '/srv/git'],
+        bind => {
+          "/run/gitweb-socket" => { 'target' => "gitweb-socket"},
+          "/data/git" => { 'target' => "srv/git", option => ",ro"}
+        },
+        ip => $ips[gitweb]
     }
     # Required for bootstrap-user
     package {'acl':
