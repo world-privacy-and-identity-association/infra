@@ -4,6 +4,12 @@ class lxc {
     }
     package{ 'lxc':
         ensure => 'installed'
+    }->
+    exec {'lxc-base-image-created':
+        logoutput => on_failure,
+        command => '/usr/bin/lxc-create -n base-image -t debian -- -r stretch --packages=gnupg2,puppet,lsb-release,debconf-utils',# gnupg2 needed for puppet managing apt-keys
+        unless => '/usr/bin/test -d /var/lib/lxc/base-image',
+        timeout => '0'
     }
     define container ($contname, $ip, $dir = [], $bind = {}, $confline = []) {
         exec {"lxc-$contname-issue-cert":
@@ -14,10 +20,10 @@ class lxc {
 
         exec{ "lxc-$contname-created":
             logoutput => on_failure,
-            command   => "/usr/bin/lxc-create -n $contname -t debian -- -r stretch --packages=gnupg2", ## requires gnupg for puppet seed
+            command   => "/usr/bin/lxc-copy -n base-image -N $contname",
             unless    => "/usr/bin/test -d /var/lib/lxc/$contname",
             timeout   => '0',
-            require   => Package['lxc'],
+            require   => [Package['lxc'],Exec['lxc-base-image-created']],
         } -> file_line {"lxc-$contname-conf1":
             path   => "/var/lib/lxc/$contname/config",
             line   => 'lxc.network.type = veth',
