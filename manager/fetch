@@ -1,0 +1,20 @@
+#!/bin/bash
+function ssh_target {
+    ssh -i vm-key "$to" "$@"
+}
+source "$1/config"
+
+echo "To: $to"
+echo "Agent: $SSH_AGENT_PID"
+oldpid=$SSH_AGENT_PID
+if [[ $oldpid == "" ]]; then
+    eval $(ssh-agent)
+    ssh-add vm-key
+fi
+
+git fetch "$to:" "HEAD:refs/remotes/$1"
+
+if [[ $oldpid == "" ]]; then
+    eval $(ssh-agent -k)
+fi
+

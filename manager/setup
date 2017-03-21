@@ -1,0 +1,180 @@
+#!/bin/bash
+signerLocation=self
+devPkgs=""
+targetHost="$1"
+
+function ssh_target {
+    ssh -i vm-key "$to" "$@"
+}
+
+function install_nre {
+    ./installNRE "$targetHost"
+}
+function read_activation_link {
+    read -rp "Link: " link
+    printf '%s\n' "$link"
+}
+function configure {
+    ssh_target -t 'bash conf-puppet --force'
+    ssh_target 'sed -i "s%\$signerLocation = '".*'"'%\$signerLocation = '"'$signerLocation'"'%" environments/production/manifests/ip.pp'
+}
+function do_reset_vm {
+    read -rp "Please reset your VM and confirm by pressing enter." _
+}
+function execute-bootstrap-user {
+    ssh_target -t 'bash bootstrap-user'
+}
+
+source "$targetHost/config"
+
+eval $(ssh-agent)
+trap "eval \$(ssh-agent -k)" EXIT
+ssh-add vm-key
+function title {
+    printf '\e]0;%s\007' "$1"
+}
+
+function reset_vm {
+    if ! [[ -f reset-vm-key ]]; then
+        ssh-keygen -f reset-vm-key -t ed25519 -N ""
+    fi
+    title 'S0: VM-reset'
+    printf "command=\"bash reset1\" "
+    cat reset-vm-key.pub
+
+    echo "Powering off"
+    ssh_target -t 'ip a show dev enp0s3; sudo poweroff'
+
+    echo "Resetting VM"
+    do_reset_vm
+    echo "Waiting for VM to respond: "
+    while ! ping -c 1 -W 1 "${to#*@}" > /dev/null; do
+        printf "."
+    done
+    printf "\n"
+    while ! ssh_target 'echo Got into VM'; do
+        sleep 5
+        echo "Please open the VM for my key"
+    done
+}
+function update {
+    title 'S1: apt-get; clone'
+    ssh_target -t "sudo apt-get update && DEBIAN_FRONTEND=noninteractive sudo -E apt-get upgrade -o Dpkg::Options::=\"--force-confold\" -y && sudo apt-get install -y git curl $devPkgs"
+    echo "Git init"
+    ssh_target -t '[[ -d .git ]] || git init;'
+    echo "Git push"
+    git bundle create .fullBundle HEAD
+    cat .fullBundle | ssh_target 'cat > .fullBundle'
+    ssh_target 'git fetch .fullBundle HEAD:refs/remotes/origin/master; rm .fullBundle'
+    rm .fullBundle
+    echo "Git update"
+    ssh_target -t 'if ! git rev-parse --verify master &> /dev/null; then git checkout origin/master; else git merge --ff-only origin/master; fi'
+}
+
+function ensure_nre {
+    first=true
+    while true; do
+        if [[ $first == "true" ]]; then
+            first=false
+        else
+            echo "Please provide the NRE archives in 'nre-results/*.tar.gz' or install them manually into the target."
+            read -p "press enter to continue" tmp
+        fi
+        install_nre
+        if ssh_target '[ -d modules/cassiopeia_client/files/profiles ] && [ -d modules/nre/files/config/profiles ]'; then
+            echo cassiopeia-client and nre-conf files found
+        else
+            echo cassiopeia-client or nre-conf files not found
+            continue
+        fi
+        if [[ "$signerLocation" == "self" ]]; then
+            if ssh_target '[ -d modules/cassiopeia_signer/files/profiles ]'; then
+                echo cassiopeia-signer files found
+            else
+                echo cassiopeia-signer files not found
+                continue
+            fi
+            if ssh_target '[ -d modules/cassiopeia/files ]'; then
+                echo external keys with self-signer?? wrong!
+                #continue
+                #TODO make more intelligent... only allow if key-pair exists
+            fi
+        else
+            if ssh_target '[ -d modules/cassiopeia/files ]'; then
+                echo external keys with self-signer found
+            else
+                echo external keys with self-signer not found
+                continue
+            fi
+        fi
+        break
+    done
+}
+function execute-bootstrap-user-auto {
+
+    coproc {
+        ssh_target -t -t 'bash bootstrap-user'
+    }
+    echo "waiting for bootstrap-user..."
+    if [[ $need_sudo == "true" ]]; then
+        read -sp "sudo: " sudo
+        if [[ $sudo != "" ]]; then
+            printf '%s\n' "$sudo" >&${COPROC[1]}
+        fi
+    fi
+    line=""
+    while [[ $line != "We need a first "* ]]; do
+        if ! read -r line <&${COPROC[0]}; then
+            echo "Error, bootstrap terminated early"
+            exit -1
+        fi
+        echo "Line: $line"
+    done
+    bootstrapper_details >&${COPROC[1]}
+
+    while [[ $line != "You should now have been sent an activation link to the email"* ]]; do
+        if ! read -r line <&${COPROC[0]}; then
+            echo "Error, bootstrap terminated early"
+            exit -1
+        fi
+        printf '%s\n' "$line"
+    done
+    read_activation_link >&${COPROC[1]}
+    cat <&${COPROC[0]}
+}
+
+if [[ "$2" == "fresh" ]]; then
+    reset_vm
+fi
+need_sudo=true
+if ssh_target "sudo -n whoami" > /dev/null; then
+    echo "Sudo does not need a password, great!"
+    need_sudo=false
+fi
+
+update
+if [[ "$2" == "update" ]]; then
+    exit 0;
+fi
+configure
+ensure_nre
+title 'S3: puppet-1'
+ssh_target -t 'sudo ./bootstrap'
+title 'S3: puppet-2'
+ssh_target -t 'sudo ./bootstrap'
+
+[[ -f ../../migrate ]] && ( cd ../.. && bash migrate "$targetHost")
+if [[ -f tricks ]]; then
+    cat tricks | ssh_target 'cat > tricks && chmod +x tricks'
+    ssh_target -t 'bash tricks'
+fi
+
+if [[ $signerLocation == "self" ]] && [[ $(ssh_target 'ps -ef | grep tcpseria[l] | wc -l') != "2" ]]; then
+    echo "Error some services weren't started"
+    exit 1
+fi
+
+execute-bootstrap-user
+
+title 'bash'
+eval $(ssh-agent -k)

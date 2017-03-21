@@ -1,0 +1,32 @@
+#!/bin/bash
+signerLocation=self
+function ssh_target {
+    ssh -i vm-key "$to" "$@"
+}
+
+source "$1/config"
+
+function extract {
+    pattern=$1
+    folder=$2
+    echo "On $to"
+    echo $folder
+    for i in $pattern; do
+        cat $i | ssh_target "mkdir -p $folder && tar xzv -C $folder"
+    done
+}
+shopt -s nullglob
+extract "nre-results/signer-server-*.tar.gz" modules/cassiopeia_signer/files
+extract "nre-results/gigi-*.tar.gz" modules/nre/files
+extract "nre-results/signer-client-*.tar.gz" modules/cassiopeia_client/files
+
+#if [[ "$1" == "signer" ]]; then
+#    extract "generated/signer-server-*.tar.gz" modules/cassiopeia_signer/files
+#elif [[ "$1" == "both" ]]; then
+#else
+#    echo "installing on $target"
+#    extract "generated/gigi-*.tar.gz" modules/nre/files
+#    extract "generated/signer-client-*.tar.gz" modules/cassiopeia_client/files
+#    #todo generate this with mkcassiopeia
+#    extract "generated/signer.tar.gz" modules/cassiopeia/files
+#fi
