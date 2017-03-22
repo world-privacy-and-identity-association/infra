@@ -119,5 +119,17 @@ node exim{
 
   package{ 'exim4-daemon-light':
     ensure => 'installed'
+  } ->
+  file{ '/etc/exim4/update-exim4.conf.conf':
+    ensure => 'file',
+    content => epp('exim/update-exim4.conf.conf'),
+    notify => Exec['/usr/sbin/update-exim4.conf']
+  }
+  exec{ '/usr/sbin/update-exim4.conf':
+    refreshonly => 'true',
+    notify => Service['exim4']
+  }
+  service{ 'exim4':
+    ensure => 'running'
   }
 }
