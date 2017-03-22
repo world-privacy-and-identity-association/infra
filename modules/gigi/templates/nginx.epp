@@ -36,7 +36,7 @@ server {
         auth_basic_user_file /etc/nginx/access.txt;
         <% } %>
     }
-    location ~* /cacert-.* {
+    location ~* /.well-known/someca-challenge/* {
         root /data/challenge;
     }
 }
@@ -57,7 +57,7 @@ server {
         auth_basic_user_file /etc/nginx/access.txt;
         <% } %>
     }
-    location ~* /cacert-.* {
+    location ~* /.well-known/someca-challenge/.* {
         root /data/challenge;
     }
 }

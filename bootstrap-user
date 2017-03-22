@@ -161,7 +161,7 @@ fi
 csrf=$(mcurl "account/domains/$domain" | tee $folder/domain | csrf "tail -n 1")
 
 token=$(grep pre $folder/domain | tail -n 1 | sed "s_.*>\([a-zA-Z0-9]*\)<.*_\1_")
-name=$(grep "content available under" $folder/domain | sed "s_.*/\([a-zA-Z0-9]*\)\\.txt.*_\1_")
+name=$(grep "content available at" $folder/domain | sed "s_.*/\([a-zA-Z0-9]*\)\\.txt.*_\1_")
 
 sudo mkdir -p /data/nginx/challenge/.well-known/someca-challenge
 printf "%s" "$token" | sudo tee /data/nginx/challenge/.well-known/someca-challenge/$name.txt > /dev/null
