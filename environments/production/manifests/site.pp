@@ -32,6 +32,7 @@ if $signerLocation == 'self' {
   }->
   service{'tcpserial.service':
     ensure => 'running',
+    enable => true,
     provider => 'systemd',
     before => Service['cassiopeia-signer.service']
   }
@@ -98,6 +99,7 @@ if $signerLocation == 'self' {
   }->
   service{'cassiopeia-signer.service':
     ensure => 'running',
+    enable => true,
     provider => 'systemd',
     require => [Exec['/usr/bin/openssl dhparam -out dh_param.pem 2048'],
                 Package['cacert-cassiopeia-signer'],
@@ -130,6 +132,7 @@ node exim{
     notify => Service['exim4']
   }
   service{ 'exim4':
-    ensure => 'running'
+    ensure => 'running',
+    enable => true,
   }
 }

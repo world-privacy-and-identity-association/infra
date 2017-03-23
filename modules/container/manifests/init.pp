@@ -8,7 +8,8 @@ class container::contained {
     ensure => installed
   }
   service { 'puppet':
-    ensure => 'running'
+    ensure => 'running',
+    enable => true,
   }
   file {'/certified':
     content => ''

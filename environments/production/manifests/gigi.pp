@@ -110,6 +110,7 @@ node gigi {
     require => [File['/var/lib/wpia-gigi'],Package[$gigi_pkg]]
   } -> service{'gigi-proxy.socket':
     ensure => 'running',
+    enable => true,
     provider => 'systemd',
     subscribe => [Exec['tar for gigi-conf'],File['/var/lib/wpia-gigi/config/profiles']],
     require => [Package[$gigi_pkg], File['/var/lib/wpia-gigi/keys/crt'], File['/var/lib/wpia-gigi/keys/csr'], Exec['/gigi-ready']]
@@ -131,6 +132,7 @@ if $signerLocation == 'self' {
   }->
   service{'tcpserial.service':
     ensure => 'running',
+    enable => true,
     provider => 'systemd',
     before => Service['cassiopeia-client.service']
   }
@@ -197,7 +199,8 @@ if $signerLocation == 'self' {
             File['/var/lib/cassiopeia/keys/signer_client.crt'],
             File['/var/lib/cassiopeia/keys/signer_client.key'],
             Exec['/gigi-ready']],
-    ensure => 'running'
+    ensure => 'running',
+    enable => true,
   }
 
 }
