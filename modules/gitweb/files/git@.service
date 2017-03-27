@@ -7,7 +7,7 @@ ExecStart=/usr/bin/git daemon --inetd --verbose --export-all --enable=upload-arc
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
-User=git
+User=nobody
 
 # sandboxing options, see systemd.exec(5)
 NoNewPrivileges=yes
