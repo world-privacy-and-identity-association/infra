@@ -15,7 +15,7 @@ if $signerLocation == 'self' {
     ensure => 'present',
     notify => Exec['apt_update']
   } ->
-  package { 'cacert-cassiopeia-signer':
+  package { 'wpia-cassiopeia-signer':
     ensure => 'installed',
     require => Exec['apt_update']
   }
@@ -102,7 +102,7 @@ if $signerLocation == 'self' {
     enable => true,
     provider => 'systemd',
     require => [Exec['/usr/bin/openssl dhparam -out dh_param.pem 2048'],
-                Package['cacert-cassiopeia-signer'],
+                Package['wpia-cassiopeia-signer'],
                 File['/var/lib/cassiopeia/logs'],
                 File['/var/lib/cassiopeia/profiles'],
                 File['/var/lib/cassiopeia/ca'],

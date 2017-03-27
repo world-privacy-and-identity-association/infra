@@ -115,7 +115,7 @@ node gigi {
     subscribe => [Exec['tar for gigi-conf'],File['/var/lib/wpia-gigi/config/profiles']],
     require => [Package[$gigi_pkg], File['/var/lib/wpia-gigi/keys/crt'], File['/var/lib/wpia-gigi/keys/csr'], Exec['/gigi-ready']]
   }
-  package{'cacert-cassiopeia':
+  package{'wpia-cassiopeia':
     ensure => 'installed',
     require => Exec['apt_update']
   }
@@ -145,7 +145,7 @@ if $signerLocation == 'self' {
 
   file {'/var/lib/cassiopeia/':
     ensure => 'directory',
-    require => Package['cacert-cassiopeia']
+    require => Package['wpia-cassiopeia']
   }
   file {'/var/lib/cassiopeia/config.txt':
     ensure => 'file',
