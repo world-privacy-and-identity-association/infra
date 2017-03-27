@@ -3,7 +3,7 @@ Description=git daemon
 Documentation=man:git-daemon(1)
 
 [Service]
-ExecStart=/usr/bin/git daemon --inetd --verbose --export-all --base-path=/srv/git
+ExecStart=/usr/bin/git daemon --inetd --verbose --export-all --enable=upload-archive --base-path=/srv/git
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
