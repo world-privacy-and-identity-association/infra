@@ -76,6 +76,14 @@ function register {
           --data-urlencode "process=Weiter" \
           --data-urlencode "csrf=$csrf" > /dev/null
 }
+function check_error {
+    cat > $folder/page_output
+    if grep -q "error-msgs" $folder/page_output; then
+        cat $folder/page_output
+        exit 1
+    fi
+}
+
 if ! type curl > /dev/null; then
     echo "requires curl" >&2
     exit 1
@@ -128,7 +136,7 @@ sudo lxc-attach -n gigi -- systemctl stop gigi-proxy.service
 
 csrf=$(mcurl login -c $folder/cookie-jar | csrf)
 open-jar $folder/cookie-jar
-mcurl login -c $folder/cookie-jar --data-urlencode "username=$adminEmail" --data-urlencode "password=$adminPw" --data-urlencode "csrf=$csrf" &>/dev/null
+mcurl login -c $folder/cookie-jar --data-urlencode "username=$adminEmail" --data-urlencode "password=$adminPw" --data-urlencode "csrf=$csrf" | check_error
 open-jar $folder/cookie-jar
 
 echo "Creating organisation"
@@ -147,10 +155,10 @@ EOF
 echo "adding org-domain"
 csrf=$(mcurl orga/$mgmOid | csrf "head -n 4" "tail -n 1")
 domainName="$hostname"
-mcurl orga/$mgmOid -d "domain=$domainName&addDomain=action&csrf=$csrf" &> /dev/null
+mcurl orga/$mgmOid -d "domain=$domainName&addDomain=action&csrf=$csrf" | check_error
 
-csrf=$(mcurl account/details | csrf "tail -1")
-mcurl account/details -d "orgaForm=orga&org%3A$mgmOid&csrf=$csrf" &> /dev/null
+csrf=$(mcurl account/details -v | csrf "tail -1")
+mcurl account/details -v -d "orgaForm=orga&org%3A$mgmOid&csrf=$csrf" | check_error
 
 echo "Configuring pings for the domain"
 domain=$(mcurl "account/domains" | grep "/account/domains/" | sed "s_.*/\([0-9]\+\)'.*_\1_")
@@ -175,7 +183,7 @@ setfacl -m user:puppet:r $folder/self-priv
 cp --preserve=all $folder/self-priv modules/gigi/files/gigi.key
 sudo lxc-attach -n front-nginx -- puppet agent --test --verbose
 
-mcurl "account/domains/$domain" -d "HTTPType=y&SSLType=y&ssl-type-0=direct&ssl-port-0=443&ssl-type-1=direct&ssl-port-1=&ssl-type-2=direct&ssl-port-2=&ssl-type-3=direct&ssl-port-3=&csrf=$csrf" > /dev/null
+mcurl "account/domains/$domain" -d "HTTPType=y&SSLType=y&ssl-type-0=direct&ssl-port-0=443&ssl-type-1=direct&ssl-port-1=&ssl-type-2=direct&ssl-port-2=&ssl-type-3=direct&ssl-port-3=&csrf=$csrf" | check_error
 
 echo "Pings configured... waiting"
 sleep 5
@@ -190,7 +198,7 @@ function issue {
     openssl req -newkey rsa:4096 -subj "/CN=blabla" -nodes -out $folder/req -keyout $folder/priv
     encoded=$(tr '\n' '?' < $folder/req | sed "s/=/%3D/g;s/+/%2B/g;s/\?/%0A/g")
 
-    mcurl account/certs/new -d "CSR=$encoded&process=Next&csrf=$csrf" > /dev/null
+    mcurl account/certs/new -d "CSR=$encoded&process=Next&csrf=$csrf" | check_error
 
     serial=$(mcurl account/certs/new -d "$options&OU=&hash_alg=SHA256&validFrom=now&validity=2y&login=1&description=&process=Issue+Certificate&csrf=$csrf" -v 2>&1 | tee $folder/certlog | grep "< Location: " | sed "s_.*/\([a-f0-9]*\)[^0-9]*_\1_")
     echo "Certificate: $serial"
