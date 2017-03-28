@@ -16,9 +16,10 @@ In the following instruction "this directory" refers to the directory (outside o
 4. connect to this VM and install CI-SSH-Key (generate one named vm-key in this directory)
    - (optional) disable SSH-Password Auth (in the VM)
    - (optional; required for CI) disable sudo requiring a password. (in the VM)
-5. (optional) install some packages for CI speedup (in the VM)
-6. (optional) Now may be a good time to poweroff the VM, take a snapshot and power it back on.
-7. run `./setup <myconfname> [fresh]`
+5. Place the NRE archives in `nre-results/*.tar.gz`. You can generate them by running `./all root $(date +%Y)` in the NRE repository, which will place the archives in the `generated/` folder there.
+6. (optional) install some packages for CI speedup (in the VM)
+7. (optional) Now may be a good time to poweroff the VM, take a snapshot and power it back on.
+8. run `./setup <myconfname> [fresh]`
    - `fresh` instructs the script to reset the VM before installing
 
 
