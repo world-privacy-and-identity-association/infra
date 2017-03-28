@@ -3,3 +3,6 @@
 */config
 *~
 \#*\#
+/vm-key
+/vm-key.pub
+/root.crt
