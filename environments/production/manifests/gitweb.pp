@@ -7,6 +7,9 @@ node gitweb {
   package{ 'libcgi-fast-perl':
     ensure => 'installed'
   }
+  package{ 'fcgiwrap':
+    ensure => 'installed'
+  }
   user{'git':
     ensure => 'present',
     system => 'yes',
@@ -49,6 +52,32 @@ node gitweb {
     notify => Service['gitweb.service']
   }
   service{'gitweb.service':
+    ensure => 'running',
+    provider => 'systemd',
+    enable => true
+  }
+  file{ '/etc/systemd/system/fcgiwrap.socket.d':
+    ensure => 'directory'
+  }
+  file{ '/etc/systemd/system/fcgiwrap.socket.d/ListenStream.conf':
+    ensure => 'file',
+    source => 'puppet:///modules/gitweb/fcgiwrap-ListenStream.conf',
+    notify => Service['fcgiwrap.socket']
+  }
+  file{ '/etc/systemd/system/fcgiwrap.service.d':
+    ensure => 'directory'
+  }
+  file{ '/etc/systemd/system/fcgiwrap.service.d/sandbox.conf':
+    ensure => 'file',
+    source => 'puppet:///modules/gitweb/fcgiwrap-sandbox.conf',
+    notify => Service['fcgiwrap.socket']
+  }
+  file{ '/etc/default/fcgiwrap':
+    ensure => 'file',
+    source => 'puppet:///modules/gitweb/fcgiwrap-default',
+    notify => Service['fcgiwrap.socket']
+  }
+  service{'fcgiwrap.socket':
     ensure => 'running',
     provider => 'systemd',
     enable => true

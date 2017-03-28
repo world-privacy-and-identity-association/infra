@@ -101,12 +101,13 @@ if $signerLocation == 'self' {
     lxc::container { 'front-nginx':
         contname => 'front-nginx',
         ip => $ips[front-nginx],
-        dir => ["/data", "/data-crl", '/data-crl-gigi', '/gitweb-socket', '/srv/git'],
+        dir => ["/data", "/data-crl", '/data-crl-gigi', '/gitweb-socket', '/git-smart-http-socket', '/srv/git'],
         bind => {
           "/data/nginx" => {target => "data", option => ",ro"},
           "/data/crl" => {target => "data-crl", option => ",ro"},
           "/data/gigi-crl" => {target => "data-crl-gigi", option => ",ro"},
           "/run/gitweb-socket" => {target => 'gitweb-socket'},
+          "/run/git-smart-http-socket" => {target => 'git-smart-http-socket'},
           "/data/git" => { 'target' => "srv/git", option => ",ro"}
         },
         require => File['/data/nginx', '/data/crl/htdocs', '/data/gigi-crl']
@@ -192,12 +193,16 @@ if $signerLocation == 'self' {
     file{'/run/gitweb-socket':
         ensure => 'directory'
     }
+    file{'/run/git-smart-http-socket':
+        ensure => 'directory'
+    }
     lxc::container { 'gitweb':
-        require => File['/data/git', '/run/gitweb-socket'],
+        require => File['/data/git', '/run/gitweb-socket', '/run/git-smart-http-socket'],
         contname => 'gitweb',
-        dir => ['/gitweb-socket', '/srv/git'],
+        dir => ['/gitweb-socket', '/git-smart-http-socket', '/srv/git'],
         bind => {
           "/run/gitweb-socket" => { 'target' => "gitweb-socket"},
+          "/run/git-smart-http-socket" => { 'target' => "git-smart-http-socket"},
           "/data/git" => { 'target' => "srv/git", option => ",ro"}
         },
         ip => $ips[gitweb]

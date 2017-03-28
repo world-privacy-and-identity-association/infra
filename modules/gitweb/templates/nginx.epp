@@ -16,6 +16,11 @@ server {
         alias /usr/share/gitweb/static;
     }
     location / {
-        root /srv/git;
+        fastcgi_pass unix:/git-smart-http-socket/fcgiwrap.socket;
+        fastcgi_param SCRIPT_FILENAME   /usr/lib/git-core/git-http-backend;
+        fastcgi_param PATH_INFO         $uri;
+        fastcgi_param GIT_PROJECT_ROOT  /srv/git;
+        fastcgi_param GIT_HTTP_EXPORT_ALL "";
+        include fastcgi_params;
     }
 }
