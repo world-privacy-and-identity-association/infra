@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+if ! [[ -f $1/config ]]; then
+    printf "Fail: config not found\n" >&2
+    exit 1
+fi
+source "$1/config"
+
+wget --no-hsts -q -O root.crt http://www.$domain/roots?pem
+wget -q --ca-certificate=root.crt https://www.$domain -O /dev/null
+printf "Validation successful\n"
