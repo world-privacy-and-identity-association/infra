@@ -31,7 +31,7 @@ if $signerLocation == 'self' {
     require => Exec['apt_update']
   }
   $cass_ip='';
-  file {'/etc/systemd/system/tcpserial.service':
+  systemd::unit_file {'tcpserial.service':
     ensure => 'file',
     content => epp('gigi/tcpserial'),
     require => Package['tcpserial']
@@ -99,7 +99,7 @@ if $signerLocation == 'self' {
     content => epp('gigi/cassiopeia-client-conf'),
   }
 
-  file {'/etc/systemd/system/cassiopeia-signer.service':
+  systemd::unit_file {'cassiopeia-signer.service':
     ensure => 'file',
     source => 'puppet:///modules/gigi/cassiopeia-signer.service',
   }->

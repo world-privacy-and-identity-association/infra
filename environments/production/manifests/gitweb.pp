@@ -20,12 +20,12 @@ node gitweb {
     group => 'git',
     before => Service['gitweb.service']
   }
-  file{ '/etc/systemd/system/git.socket':
+  systemd::unit_file {'git.socket':
     ensure => 'file',
     source => 'puppet:///modules/gitweb/git.socket',
     before => Service['git.socket']
   }
-  file{ '/etc/systemd/system/git@.service':
+  systemd::unit_file {'git@.service':
     ensure => 'file',
     source => 'puppet:///modules/gitweb/git@.service',
     before => Service['git.socket']
@@ -35,7 +35,7 @@ node gitweb {
     provider => 'systemd',
     enable => true
   }
-  file{ '/etc/systemd/system/gitweb.service':
+  systemd::unit_file {'gitweb.service':
     ensure => 'file',
     source => 'puppet:///modules/gitweb/gitweb.service',
     notify => Service['gitweb.service']
@@ -59,7 +59,7 @@ node gitweb {
   file{ '/etc/systemd/system/fcgiwrap.socket.d':
     ensure => 'directory'
   }
-  file{ '/etc/systemd/system/fcgiwrap.socket.d/ListenStream.conf':
+  systemd::unit_file {'fcgiwrap.socket.d/ListenStream.conf':
     ensure => 'file',
     source => 'puppet:///modules/gitweb/fcgiwrap-ListenStream.conf',
     notify => Service['fcgiwrap.socket']
@@ -67,7 +67,7 @@ node gitweb {
   file{ '/etc/systemd/system/fcgiwrap.service.d':
     ensure => 'directory'
   }
-  file{ '/etc/systemd/system/fcgiwrap.service.d/sandbox.conf':
+  systemd::unit_file {'fcgiwrap.service.d/sandbox.conf':
     ensure => 'file',
     source => 'puppet:///modules/gitweb/fcgiwrap-sandbox.conf',
     notify => Service['fcgiwrap.socket']
