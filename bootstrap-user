@@ -140,9 +140,10 @@ if ! grep -q '^[0-9]\+$' <<< $mgmOid; then
 fi
 printf "Management Organisation id is \"%s\"\n" "$mgmOid"
 
-echo "add self as orgadmin for organisation"
-csrf=$(mcurl orga/$mgmOid | csrf "head -n 2" "tail -n 1")
-mcurl orga/$mgmOid --data-urlencode "email=$adminEmail" --data-urlencode "master=y" --data-urlencode "do_affiliate=Add" --data-urlencode "csrf=$csrf" &>/dev/null
+echo "using SQL to add self as orgadmin for organisation"
+sudo lxc-attach -n postgres-primary -- su -c "psql -d gigi" postgres <<EOF
+INSERT INTO org_admin("orgid", "memid", "creator", "master") VALUES('$mgmOid', (SELECT "id" FROM "users" WHERE "email"='$adminEmail'), (SELECT "id" FROM "users" WHERE "email"='$secondaryEmail'), 'y');
+EOF
 echo "adding org-domain"
 csrf=$(mcurl orga/$mgmOid | csrf "head -n 4" "tail -n 1")
 domainName="$hostname"
