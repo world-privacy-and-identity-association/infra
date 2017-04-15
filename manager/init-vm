@@ -1,0 +1,17 @@
+#!/bin/bash
+source $1/config
+ssh-copy-id -i vm-key $to
+echo "Please add the following line to your sudoers file."
+echo "%sudo ALL=(ALL) NOPASSWD:ALL"
+read -rp 'Press Enter to visudo.' _
+ssh -t -i vm-key $to "sudo visudo"
+read -rp "The ssh-key to access the VM has been installed therefore ssh password authentication is not needed anymore. It's best to disable password authentication now in the sshd config file. Press Enter to edit the file." _
+ssh -t -i vm-key $to "sudo -e /etc/ssh/sshd_config && sudo systemctl reload ssh"
+
+# ci-speedup
+read -rp 'We are done. Continue with additional setup to speed up CI builds? [y/N] ' prompt
+if [[ $prompt == "y" ]]; then
+    ssh -i vm-key $to 'sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get install -y git emacs-nox tmux curl puppet puppet-master lxc'
+    ssh -i vm-key $to 'sudo lxc-create -n base-image -t debian -- -r stretch --packages=gnupg2,puppet,lsb-release,debconf-utils'
+    ssh -i vm-key $to 'sudo rm -r /var/lib/lxc/base-image/rootfs/var/lib/apt/lists"'
+fi

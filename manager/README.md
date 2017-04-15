@@ -12,7 +12,6 @@ In the following instruction "this directory" refers to the directory (outside o
    - create an ssh-key (may have a passphrase) named "vm-key" in this directory
    - install the public key into the VMs authorized_keys-file (e.g. with `ssh-copy-id`)
    - create a file named `<myconfname>/config` containing `to=user@vm-connection-info`
-   (steps 4 and 5 can be executed by script init-vm)
 4. connect to this VM and install CI-SSH-Key (generate one named vm-key in this directory)
    - (optional) disable SSH-Password Auth (in the VM)
    - (optional; required for CI) disable sudo requiring a password. (in the VM)
@@ -22,6 +21,7 @@ In the following instruction "this directory" refers to the directory (outside o
 8. run `./setup <myconfname> [fresh]`
    - `fresh` instructs the script to reset the VM before installing
 
+(Steps 4 and 6 can be guided by the script "init-vm".)
 
 Creating a tricks script
 ------
