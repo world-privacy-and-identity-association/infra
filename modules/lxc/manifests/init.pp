@@ -142,18 +142,23 @@ class lxc {
         file {"/var/lib/lxc/$contname/rootfs/var/lib/puppet/ssl/certs/$contname.pem":
           source => "file:///var/lib/puppet/ssl/certs/$contname.pem",
           notify => Exec["lxc-$contname-puppet-restart"],
-        } ->
+        }
         exec {"lxc-$contname-puppet-restart":
-          command => "/usr/bin/lxc-attach -n $contname -- systemctl restart puppet",
+          command => "/usr/bin/lxc-attach -n $contname -- systemctl stop puppet",
           timeout   => '0',
           refreshonly => 'true'
-        } ->
+        } ~>
         exec {"lxc-$contname-refresh":
           command => "/usr/bin/lxc-attach -n $contname -- puppet agent --onetime --no-daemonize --verbose",
           timeout   => '0',
           # TODO figure out a way to verify puppet launches
           creates => "/var/lib/lxc/$contname/rootfs/certified"
           ##creates => "/var/lib/lxc/$contname/rootfs/lib/systemd/system/puppet.service"
+        } ~>
+        exec {"lxc-$contname-puppet-start":
+          command => "/usr/bin/lxc-attach -n $contname -- systemctl start puppet",
+          timeout   => '0',
+          refreshonly => 'true'
         }
     }
 
