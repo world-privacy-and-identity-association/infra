@@ -1,5 +1,4 @@
 define teracara_quiz (){
-  class{'apt':}
   apt_key{ 'E643C483A426BB5311D26520A631B6AF9FD3DF94':
     source => 'http://deb.dogcraft.de/signer.gpg',
     ensure => 'present'

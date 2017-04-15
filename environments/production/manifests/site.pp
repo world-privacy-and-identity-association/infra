@@ -1,3 +1,10 @@
+class { 'apt':
+  update => {
+    frequency => 'daily',
+  },
+}
+Exec["apt_update"] -> Package <| |>
+
 node  cassiopeia {
   include container::contained
 if $signerLocation == 'self' {
@@ -5,7 +12,6 @@ if $signerLocation == 'self' {
 } else {
   include container::ssh
 }
-  class{'apt':}
   apt_key{ 'E643C483A426BB5311D26520A631B6AF9FD3DF94':
     source => 'http://deb.dogcraft.de/signer.gpg',
     ensure => 'present'

@@ -19,7 +19,6 @@ node gigi {
     unless => "/usr/bin/debconf-get-selections | /bin/grep -F '$gigi_translation' | /bin/grep -F '$gigi_pkg/fetch-locales'"
   }
 
-  class{'apt':}
   apt_key{ 'E643C483A426BB5311D26520A631B6AF9FD3DF94':
     source => 'http://deb.dogcraft.de/signer.gpg',
     ensure => 'present'
