@@ -4,12 +4,16 @@ if [[ "$UID" == 0 ]]; then
     echo "Run script as non-root-user"
     exit
 fi
-if [[ "$com" == "ask quiz certs" ]]; then
+if [[ "$com" == "update certs" || "$com" == "force update certs" ]]; then
+    force=false
+    if [[ "$com" == "force update certs" ]]; then
+        force=true
+    fi
     folder=$(mktemp -d)
     # In argument 1 is the path of the certificates to update: $1.crt and $1.key
     function update_cert {
         name=$1
-        if [[ -f $name.crt ]] && openssl x509 -checkend $((365*24*60*60)) -in $name.crt > /dev/null; then
+        if [[ -f $name.crt ]] && openssl x509 -checkend $((365*24*60*60)) -in $name.crt > /dev/null && ! $force; then
             echo "SKIP $name"
         else
             echo "ISSUE $name"
@@ -51,7 +55,7 @@ if [[ "$com" == "ask quiz certs" ]]; then
     [[ -f $folder/web.req ]] && rm $folder/web.req
     [[ -f $folder/web.key ]] && rm $folder/web.key
     rmdir $folder
-elif [[ "$com" == "reload quiz certs" ]]; then
+elif [[ "$com" == "reload certs" ]]; then
     sudo puppet apply /etc/puppet/code/environments/production/manifests --verbose
     sudo lxc-attach -n front-nginx -- puppet agent --verbose --test
     sudo lxc-attach -n quiz -- puppet agent --verbose --test
