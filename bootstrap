@@ -33,10 +33,10 @@ if ! grep -q host01 /etc/hosts; then
 fi
 
 
-puppet module install puppetlabs-firewall
-puppet module install puppetlabs-stdlib
-puppet module install puppetlabs-apt
-puppet module install puppetlabs-postgresql
-puppet module install puppetlabs-mysql
+puppet module install puppetlabs-firewall --version 1
+puppet module install puppetlabs-stdlib --version 4
+puppet module install puppetlabs-apt --version 2
+puppet module install puppetlabs-postgresql --version 4
+puppet module install puppetlabs-mysql --version 3
 
 puppet apply /etc/puppet/code/environments/production/manifests --debug
