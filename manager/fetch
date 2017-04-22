@@ -2,7 +2,9 @@
 function ssh_target {
     ssh -i vm-key "$to" "$@"
 }
-source "$1/config"
+target=$1
+target=${target%/}
+source "$target/config"
 
 echo "To: $to"
 echo "Agent: $SSH_AGENT_PID"
@@ -11,9 +13,13 @@ if [[ $oldpid == "" ]]; then
     eval $(ssh-agent)
     ssh-add vm-key
 fi
-
-git fetch "$to:" "HEAD:refs/remotes/$1"
-
+command=$(basename -- "$0")
+echo "Action: $command"
+if [[ $command == "push" ]]; then
+    git push -f "$to:" "HEAD:refs/remotes/manager/master"
+else
+    git fetch "$to:" "+HEAD:refs/remotes/$target/master"
+fi
 if [[ $oldpid == "" ]]; then
     eval $(ssh-agent -k)
 fi
