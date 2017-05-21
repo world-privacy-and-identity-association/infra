@@ -30,6 +30,15 @@ define front_vhost($source, $crt = undefined){
 node front-nginx {
   include container::contained;
   include container::no_ssh;
+  apt_key{ 'E643C483A426BB5311D26520A631B6AF9FD3DF94':
+    source => 'http://deb.dogcraft.de/signer.gpg',
+    ensure => 'present'
+  } ->
+    file { '/etc/apt/sources.list.d/dogcraft.list':
+      source => 'puppet:///modules/lxc/dogcraft.list',
+      ensure => 'present',
+      notify => Exec['apt_update']
+  }
   package{ 'nginx-light':
     ensure => 'installed'
   }
@@ -41,6 +50,13 @@ node front-nginx {
   }
   front_vhost{'crl':
     source => 'crl/nginx',
+    notify => Service['nginx']
+  }
+  package{'wpia-infradocs':
+    ensure => 'installed'
+  } ->
+  front_vhost{'infradocs':
+    source => 'infradocs/nginx',
     notify => Service['nginx']
   }
   if($protected != 'no') {

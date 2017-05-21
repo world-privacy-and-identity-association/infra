@@ -1,0 +1,28 @@
+server {
+    listen       0.0.0.0:443 ssl;
+    server_name  infradocs.<%=$systemDomain%>;
+#    ssl_certificate /etc/ssl/private/gigi.crt;
+#    ssl_certificate_key /etc/ssl/private/gigi.key;
+
+#    ssl_client_certificate /etc/ssl/root.crt;
+#    ssl_verify_client on;
+#    ssl_verify_depth 4;
+
+    location / {
+        root '/usr/share/doc/wpia-infradocs/html';
+        index main.html;
+    }
+}
+server {
+    listen       0.0.0.0:80;
+    server_name  infradocs.<%=$systemDomain%>;
+
+    location / {
+        root '/usr/share/doc/wpia-infradocs/html';
+        index main.html;
+    }
+
+    location ~* /.well-known/someca-challenge/.* {
+        root /data/challenge;
+    }
+}
