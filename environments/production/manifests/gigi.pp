@@ -35,7 +35,18 @@ node gigi {
   $gigi_pg_ip = $ips[postgres];
   $gigi_pg_password = $passwords[postgres][gigi];
   file { '/var/lib/wpia-gigi':
-    ensure => 'directory'
+    ensure => 'directory',
+    require => Package[$gigi_pkg]
+  }
+  file {'/var/lib/wpia-gigi/ocsp':
+    ensure => 'link',
+    target => '/var/lib/cassiopeia/ca',
+    before => Exec['/gigi-ready'],
+  }
+  file {'/var/lib/wpia-gigi/ocsp.pkcs12':
+    ensure => 'file',
+    owner => 'gigi',
+    before => Exec['/gigi-ready'],
   }
   file { '/var/lib/wpia-gigi/config':
     ensure => 'directory'
@@ -91,12 +102,14 @@ node gigi {
   file {'/var/lib/wpia-gigi/keys/crt':
     ensure => 'directory',
     owner => 'gigi',
-    require => Package[$gigi_pkg]
+    require => Package[$gigi_pkg],
+    before => Exec['/gigi-ready'],
   }
   file {'/var/lib/wpia-gigi/keys/csr':
     ensure => 'directory',
     owner => 'gigi',
-    require => Package[$gigi_pkg]
+    require => Package[$gigi_pkg],
+    before => Exec['/gigi-ready'],
   }
   exec {'/gigi-ready':
     creates => '/gigi-ready',
@@ -163,6 +176,7 @@ if $signerLocation == 'self' {
   }
   file {'/var/lib/cassiopeia/ca':
     ensure => 'directory',
+    owner => 'gigi',
     source => 'puppet:///modules/cassiopeia_client/ca',
     recurse => true,
   }

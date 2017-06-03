@@ -11,3 +11,5 @@ key.directory=/var/lib/wpia-gigi/keys
 
 crlPrefix=http://g2.crl.<%=$systemDomain%>
 crtPrefix=http://g2.crt.<%=$systemDomain%>
+
+ocsp.path=http://g2.ocsp.<%=$systemDomain%>
