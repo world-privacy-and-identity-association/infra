@@ -1,12 +1,12 @@
 #!/bin/bash
 com="$SSH_ORIGINAL_COMMAND"
-if [[ "$UID" == 0 ]]; then
+if [[ $UID == 0 ]]; then
     echo "Run script as non-root-user"
     exit
 fi
-if [[ "$com" == "update certs" || "$com" == "force update certs" ]]; then
+if [[ $com == "update certs" || $com == "force update certs" ]]; then
     force=false
-    if [[ "$com" == "force update certs" ]]; then
+    if [[ $com == "force update certs" ]]; then
         force=true
     fi
     folder=$(mktemp -d)
@@ -20,7 +20,7 @@ if [[ "$com" == "update certs" || "$com" == "force update certs" ]]; then
             openssl req -newkey rsa:4096 -subj "/CN=will-be-ignored" -nodes -out $folder/web.req -keyout $folder/web.key 2>/dev/null
             cat $folder/web.req
             read -r response
-            if [[ "$response" == "SUCCESS" ]]; then
+            if [[ $response == "SUCCESS" ]]; then
                 # read certificate count
                 read -r len
                 printf '' > $folder/web.crt
@@ -55,12 +55,12 @@ if [[ "$com" == "update certs" || "$com" == "force update certs" ]]; then
     [[ -f $folder/web.req ]] && rm $folder/web.req
     [[ -f $folder/web.key ]] && rm $folder/web.key
     rmdir $folder
-elif [[ "$com" == "reload certs" ]]; then
+elif [[ $com == "reload certs" ]]; then
     sudo puppet apply /etc/puppet/code/environments/production/manifests --verbose
     sudo lxc-attach -n front-nginx -- puppet agent --verbose --test
     sudo lxc-attach -n quiz -- puppet agent --verbose --test
     sudo lxc-attach -n gigi -- puppet agent --verbose --test
-elif [[ "$com" == "update crls" ]]; then
+elif [[ $com == "update crls" ]]; then
     if ! tar xv -C /data/crl; then
         echo "requiring tar"
         exit;
