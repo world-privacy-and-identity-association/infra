@@ -15,12 +15,6 @@ define teracara_quiz (){
   package { 'apache2':
     ensure => 'installed',
   }
-  file {'/etc/apache2/sites-available/000-default.conf':
-      require => Package['apache2'],
-      ensure => 'file',
-      source => 'puppet:///modules/quiz/000-default.conf',
-      notify => Service['apache2'],
-  }
   file {'/etc/teracara-quiz/config.php':
       require => Package['teracara-quiz'],
       ensure => 'file',
@@ -49,21 +43,24 @@ define teracara_quiz (){
       source => ['puppet:///modules/nre/config/ca/root.crt'],
       show_diff => 'no'
   }
-  class {'::mysql::client':
-    package_name    => 'mariadb-client'
+  exec { 'import quiz schema':
+    command => "/usr/bin/psql -U quiz -h ${ips[postgres]} < /usr/share/teracara-quiz/sql/db_postgresql.sql",
+    environment => ["PGPASSWORD=${passwords[postgres][quiz]}"],
+    unless  => "/usr/bin/psql -U quiz -h ${ips[postgres]} -tc \"select * from pg_tables where schemaname='public';\" | /bin/grep -q '.'",
+    require => [Package['teracara-quiz']],
+    before => File['/etc/apache2/sites-available/000-default.conf']
   }
-  class { '::mysql::server':
-    package_name            => 'mariadb-server',
-    root_password           => $passwords[quiz-mysql][root]
+  file {'/etc/apache2/sites-available/000-default.conf':
+      require => Package['apache2'],
+      ensure => 'file',
+      source => 'puppet:///modules/quiz/000-default.conf',
+      notify => Service['apache2'],
   }
-  mysql::db { 'quiz':
-    require => Package['teracara-quiz'],
-    user     => 'quiz',
-    password => $passwords[quiz-mysql][quiz],
-    host     => 'localhost',
-    grant    => ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
-    sql      => '/usr/share/teracara-quiz/sql/db.sql',
-    import_timeout => 900,
+  package{'mariadb-server':
+      ensure => 'purged'
+  }
+  package{'mariadb-client':
+      ensure => 'purged'
   }
 }
 node quiz{

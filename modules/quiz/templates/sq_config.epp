@@ -3,4 +3,7 @@
                 $sq_hostname='localhost';
                 $sq_dbname='quiz';
                 $sq_dbusername='quiz';
-                $sq_dbpassword='<%=$passwords[quiz-mysql][quiz]%>';
+                $sq_dbpassword='<%=$passwords[postgres][quiz]%>';
+                $sq_dbdriver='pdo';
+                $sq_dbport='5432';
+                $sq_dbdsn='pgsql:host=' . $sq_hostname .';port=' .$sq_dbport .';dbname=' . $sq_dbname;

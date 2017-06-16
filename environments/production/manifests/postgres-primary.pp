@@ -28,4 +28,19 @@ node postgres-primary {
     address     => "$gigi_ip/32",
     auth_method => 'md5',
   }
+
+  postgresql::server::db { 'quiz':
+    require  => Class['postgresql::server'],
+    user     => 'quiz',
+    password => postgresql_password('quiz', $passwords[postgres][quiz]),
+  }
+  postgresql::server::pg_hba_rule { 'allow quiz to access its database':
+    require  => Package['postgresql'],
+    description => "Open up PostgreSQL for access from quiz to its database",
+    type        => 'host',
+    database    => 'quiz',
+    user        => 'quiz',
+    address     => "${ips[quiz]}/32",
+    auth_method => 'md5',
+  }
 }

@@ -10,12 +10,9 @@ $ips = {
 
 $passwords = {
    postgres => {
-     gigi => 'gigi'
-   },
-   quiz-mysql => {
-     root => 'root',
+     gigi => 'gigi',
      quiz => 'quiz'
-   }
+   },
 }
 
 $testServer = 'false'
