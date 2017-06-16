@@ -68,7 +68,7 @@ class lxc {
           file_line { "lxc-$contname-mount-$out":
            path   => "/var/lib/lxc/$contname/config",
            line   => "lxc.mount.entry = $out ${in[target]} none bind${in[option]} 0 0",
-           require=> File_line["lxc-$contname-conf5"],
+           require=> [File_line["lxc-$contname-conf5"], File["$out"]],
            notify  => Exec["lxc-$contname-started"],
           }
         }

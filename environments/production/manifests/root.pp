@@ -110,7 +110,7 @@ if $signerLocation == 'self' {
           "/run/git-smart-http-socket" => {target => 'git-smart-http-socket'},
           "/data/git" => { 'target' => "srv/git", option => ",ro"}
         },
-        require => File['/data/nginx', '/data/crl/htdocs', '/data/gigi-crl']
+        require => File['/data/crl/htdocs']
     }
     file { '/data':
        ensure => 'directory',
@@ -154,7 +154,6 @@ if $signerLocation == 'self' {
           "/data/postgres/data" => { target => "var/lib/postgresql"},
           "/data/postgres/conf" => { target => "etc/postgresql"}
         },
-        require => File['/data/postgres']
     }
     $gigi_serial_conf= $signerLocation ? {
       'self'          => [],
@@ -170,7 +169,6 @@ if $signerLocation == 'self' {
           "/data/gigi-crl" => { target => "var/lib/cassiopeia/ca"}
         },
         confline => $gigi_serial_conf,
-        require => File['/data/gigi', '/data/gigi-crl']
     }
     if $signerLocation == 'self' {
       lxc::container { 'cassiopeia':
@@ -197,7 +195,6 @@ if $signerLocation == 'self' {
         ensure => 'directory'
     }
     lxc::container { 'gitweb':
-        require => File['/data/git', '/run/gitweb-socket', '/run/git-smart-http-socket'],
         contname => 'gitweb',
         dir => ['/gitweb-socket', '/git-smart-http-socket', '/srv/git'],
         bind => {
