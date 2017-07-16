@@ -1,0 +1,131 @@
+#!/bin/bash
+targetHost=$1
+targetHost=${targetHost%/}
+source config
+source "$targetHost/config"
+
+if [[ ! -f admin-key ]]; then
+    ssh-keygen -t ed25519 -N "" -f admin-key
+    printf >&2 'Warning: generated admin-key without passphrase\n'
+fi
+
+if [[ "$2" == "install" ]]; then
+    ssh_target "cat >> modules/hop/files/authorized_keys <<< 'command=\"/home/admin/commands\",restrict,pty $(cat admin-key.pub)'"
+    ssh_target -t 'sudo lxc-attach -n hop -- bash -c "ssh-keyscan -H 10.0.3.1 > /home/admin/.ssh/known_hosts"'
+    ssh_target -t 'sudo lxc-attach -n hop -- puppet agent --test --verbose'
+    exit 0;
+fi
+
+
+read_admin_email
+read_admin_password
+
+echo -n "cat >> modules/hop/files/authorized_keys <<< 'command=\"/home/admin/commands\",restrict,pty $(cat admin-key.pub)' && "
+echo -n 'sudo lxc-attach -n hop -- bash -c "ssh-keyscan -H 10.0.3.1 > /home/admin/.ssh/known_hosts" && '
+echo 'sudo lxc-attach -n hop -- puppet agent --test --verbose'
+read -p "Keys installed? " _
+folder=.tmpdata
+mkdir -p $folder
+function csrf {
+    grep csrf | ${1:-cat}  | ${2:-cat} | sed "s/.*value='\([^']*\)'.*/\\1/"
+}
+
+[[ -f root.crt ]] || curl -s "http://www.$domain/roots?pem" > root.crt
+echo "Opening Gigi connection"
+rm -f $folder/cookie-jar
+csrf=$(mcurl login -c $folder/cookie-jar|csrf)
+if ! [[ -f $folder/cookie-jar ]]; then
+    echo "Need cookies." >&2
+    exit 1;
+fi
+mcurl login --data-urlencode "username=$admin_email" --data-urlencode "password=$admin_password" --data-urlencode "csrf=$csrf" -c $folder/cookie-jar > /dev/null
+
+csrf=$(mcurl account/details | csrf "tail -n 1")
+mcurl account/details --data "orgaForm=orga&org%3A3=yes&csrf=$csrf"
+echo "Gigi is ready"
+function issue0 {
+    options=$1
+    csr=$2
+    csrf=$(mcurl "account/certs/new" | csrf "head -n 1")
+
+    encoded=$(cat "$csr" | tr '\n' '?' | sed "s/=/%3D/g;s/+/%2B/g;s/\?/%0A/g")
+
+    mcurl account/certs/new -d "CSR=$encoded&process=Next&csrf=$csrf" > /dev/null
+
+    serial=$(mcurl account/certs/new -d "$options&OU=&hash_alg=SHA256&validFrom=now&validity=2y&login=1&description=&process=Issue+Certificate&csrf=$csrf" -v 2>&1 | tee $folder/certlog | grep "< Location: " | sed "s_.*/\([a-f0-9]*\)[^0-9]*_\1_")
+    echo "Certificate: $serial"
+    if [[ $serial != "" ]]; then
+        mcurl "account/certs/$serial.crt?chain&noAnchor" > $folder/cert.crt
+        return 0;
+    else
+        return 1;
+    fi
+}
+force=""
+if [[ "$2" == "force" ]]; then
+    force="force "
+fi
+coproc {
+    admin_ssh "${force}update certs"
+    read -r end
+}
+updated="false"
+while true; do
+    read -r line <&${COPROC[0]} || break;
+    echo "Command: $line"
+    if [[ "$line" = "SKIP "* ]]; then
+        echo "Skipping: $line"
+    elif [[ "$line" = "ISSUE "* ]]; then
+        openssl req -out $folder/web.req <&${COPROC[0]}
+        echo "CSR received, contacting Gigi"
+        options="profile=server-orga&CN=&SANs=quiz.$domain"
+        case ${line#ISSUE } in
+            "modules/gigi/files/gigi")
+                options="profile=server-orga&CN=&SANs=www.$domain%0Asecure.$domain%0Astatic.$domain%0Aapi.$domain%0A"
+                ;;
+            "modules/pootle/files/web")
+                options="profile=server-orga&CN=&SANs=pootle.$domain"
+                ;;
+            "modules/gigi/files/client")
+                options="profile=mail-orga&CN=&SANs=gigi@$domain"
+                ;;
+            "modules/quiz/files/web")
+                options="profile=server-orga&CN=&SANs=quiz.$domain"
+                ;;
+            "modules/gitweb/files/web")
+                options="profile=server-orga&CN=&SANs=code.$domain"
+                ;;
+            "modules/quiz/files/client")
+                options="profile=client-orga&CN=Quiz+Api+User&SANs=quiz@$domain"
+                ;;
+            *)
+                echo "Unknown certificate in $line, rejecting"
+                echo "FAIL" >&${COPROC[1]}
+                continue;
+                ;;
+        esac
+        if issue0 "$options" $folder/web.req; then
+            echo "gigi issued successfully"
+            echo "SUCCESS" >&${COPROC[1]}
+            updated="true"
+            cnt=$(grep "BEGIN CERTIFICATE" $folder/cert.crt | wc -l)
+            echo "chain of length $cnt"
+            echo "$cnt" >&${COPROC[1]}
+            cat $folder/cert.crt >&${COPROC[1]}
+            read -r reply <&${COPROC[0]};
+            echo $reply
+        else
+            echo "FAIL" >&${COPROC[1]}
+        fi
+    elif [[ "$line" = "DONE" ]]; then
+        sleep 1
+        break;
+    fi
+done
+echo "end process" >&${COPROC[1]}
+cat <&${COPROC[0]}
+mcurl logout > /dev/null
+
+if [[ "$updated" == "true" ]]; then
+    admin_ssh -t "reload certs"
+fi

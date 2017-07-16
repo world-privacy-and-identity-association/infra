@@ -64,3 +64,25 @@ function read_activation_link {
     read -rp "Link: " link
     printf '%s\n' "$link"
 }
+
+# Assign to the variable "admin_email" the email address of the gigi user account that should issue certificates for the system.
+function read_admin_email {
+    read -rp "Gigi user account email for certificates: " admin_email
+}
+
+# Assign to the variable "admin_password" the password of the gigi user account that should issue certificates for the system.
+function read_admin_password {
+    read -rsp "Gigi password: " admin_password
+}
+
+# Connect to gigi using $1 as local url part, the remaining args as additional curl arguments, "root.crt" as root certificate, "$folder/cookie-jar" as cookie-jar.
+function mcurl {
+    local url="$1"
+    shift
+    curl -s --cacert root.crt -b $folder/cookie-jar "https://www.$domain/$url" "$@"
+}
+
+# Connect via ssh into the "hop" container.
+function admin_ssh {
+    ssh -i admin-key -p 2222 "admin@$to" "$@"
+}

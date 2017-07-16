@@ -6,3 +6,6 @@
 /vm-key
 /vm-key.pub
 /root.crt
+/admin-key
+/admin-key.pub
+/.tmpdata
