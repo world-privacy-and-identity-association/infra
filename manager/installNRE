@@ -1,10 +1,8 @@
 #!/bin/bash
-signerLocation=self
-function ssh_target {
-    ssh -i vm-key "$to" "$@"
-}
-
-source "$1/config"
+targetHost=$1
+targetHost=${targetHost%/}
+source config
+source "$targetHost/config"
 
 function extract {
     pattern=$1

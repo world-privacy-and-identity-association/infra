@@ -1,0 +1,66 @@
+### Documentation for configuration options
+
+## Variables
+
+# (required) Base domain for infra system installation.
+#to=
+
+# (required) Hostname or IP address of the infra system.
+#domain=
+
+# Additional packages that should be installed.
+devPkgs=""
+
+# How to connect to the signer backend.
+#
+# Either the name for the serial device or "self" to indicate that a signer container should be set up.
+signerLocation=self
+
+## Functions
+
+# Run a command in the infra system, accepting additional ssh-options.
+function ssh_target {
+    ssh -i vm-key "$to" "$@"
+}
+
+# Install nre-files to the target system.
+#
+# * Extract all "signer-server" to modules/cassiopeia_signer/files in the target system.
+# * Extract all "signer-client" to modules/cassiopeia_client/files in the target system.
+# * Extract all "gigi" to modules/ner/files in the target system.
+function install_nre {
+    ./installNRE "$targetHost"
+}
+
+# Configure variables for puppet.
+#
+# The default implementation prompts the user for all required variables.
+function configure {
+    ssh_target -t 'bash conf-puppet --force'
+    ssh_target 'sed -i "s%\$signerLocation = '".*'"'%\$signerLocation = '"'$signerLocation'"'%" environments/production/manifests/ip.pp'
+}
+
+# Reset a vm to its base snapshot.
+#
+# The default implementation asks the user to do so.
+function do_reset_vm {
+    read -rp "Please reset your VM and confirm by pressing enter." _
+}
+
+# Execute the gigi bootstrapping process. By default the process interacts with the user.
+#
+# This function can be overridden to execute "execute-bootstrap-user-auto" in order to automate this bootstrapping process.
+# Make sure to provide "bootstrapper_details" to provide the necessary answers.
+# To fully automate bootstrapping, you need to provide a way to extract the activation link (see "read_activation_link").
+function execute-bootstrap-user {
+    ssh_target -t 'bash bootstrap-user'
+}
+
+# Obtain the activation link in the variable "$link".
+#
+# This is required for activating the first bootstrappers account.
+# This is only required for automated bootstrap user.
+function read_activation_link {
+    read -rp "Link: " link
+    printf '%s\n' "$link"
+}
