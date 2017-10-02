@@ -57,9 +57,9 @@ if [[ $com == "update certs" || $com == "force update certs" ]]; then
     rmdir $folder
 elif [[ $com == "reload certs" ]]; then
     sudo puppet apply /etc/puppet/code/environments/production/manifests --verbose
-    sudo lxc-attach -n front-nginx -- puppet agent --verbose --onetime
-    sudo lxc-attach -n quiz -- puppet agent --verbose --onetime
-    sudo lxc-attach -n gigi -- puppet agent --verbose --onetime
+    sudo lxc-attach -n front-nginx -- puppet agent --verbose --onetime --no-daemonize
+    sudo lxc-attach -n quiz -- puppet agent --verbose --onetime --no-daemonize
+    sudo lxc-attach -n gigi -- puppet agent --verbose --onetime --no-daemonize
 elif [[ $com == "update crls" ]]; then
     if ! tar xv -C /data/crl; then
         echo "requiring tar"
