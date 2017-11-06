@@ -34,8 +34,9 @@ fi
 
 
 puppet module install puppetlabs-firewall --version 1
-# pinned to 4.18, as from version 4.19 the "file_line" is not able to remove "search" and "domain" lines from the container's resolv.conf
-puppet module install puppetlabs-stdlib --version 4.18
+# In version 4.19 and 4.20, the "file_line" is not able to remove "search" and "domain" lines from the container's resolv.conf.
+# Since Puppet 4 does not support "union ranges" of versions (only Puppet 5 does, which is currently not included in Debian), require >=4.21.0 and ignore that <=4.18 works as well.
+puppet module install puppetlabs-stdlib --version ">=4.21.0"
 puppet module install puppetlabs-apt --version 2
 puppet module install puppetlabs-postgresql --version 4
 puppet module install puppetlabs-mysql --version 3
