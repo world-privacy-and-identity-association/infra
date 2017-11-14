@@ -43,4 +43,27 @@ node postgres-primary {
     address     => "${ips[quiz]}/32",
     auth_method => 'md5',
   }
+  postgresql::server::pg_hba_rule{'allow local replication by postgres':
+    #local   replication     postgres                ident
+    type        => 'local',
+    database    => 'replication',
+    user        => 'postgres',
+    auth_method => 'ident'
+  }
+  postgresql_conf{'archive_mode':
+    target => '/etc/postgresql/9.6/main/postgresql.conf',
+    value => 'on'
+  }
+  file{'/var/lib/postgresql/archive/':
+    ensure => 'directory',
+    owner => 'postgres'
+  } ->
+  postgresql_conf{'archive_command':
+    target => '/etc/postgresql/9.6/main/postgresql.conf',
+    value => 'test ! -f /var/lib/postgresql/archive/%f && cp %p /var/lib/postgresql/archive/%f'
+  }
+  postgresql_conf{'wal_level':
+    target => '/etc/postgresql/9.6/main/postgresql.conf',
+    value => 'replica'
+  }
 }
