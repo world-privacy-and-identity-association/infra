@@ -135,12 +135,14 @@ if [[ "$2" == "update" ]]; then
 fi
 configure
 ensure_nre
+
+install_backup
+
 title 'S3: puppet-1'
 ssh_target -t 'sudo ./bootstrap'
 title 'S3: puppet-2'
 ssh_target -t 'sudo ./bootstrap'
 
-[[ -f ../../migrate ]] && ( cd ../.. && bash migrate "$targetHost")
 if [[ -f tricks ]]; then
     cat tricks | ssh_target 'cat > tricks && chmod +x tricks'
     ssh_target -t 'bash tricks'
@@ -151,7 +153,7 @@ if [[ $signerLocation == "self" ]] && [[ $(ssh_target 'ps -ef | grep tcpseria[l]
     exit 1
 fi
 
-execute-bootstrap-user
+populate_system
 
 title 'bash'
 eval $(ssh-agent -k)

@@ -1,0 +1,138 @@
+#!/bin/bash
+
+targetHost=$1
+targetHost=${targetHost%/}
+source config
+source "$targetHost/config"
+
+if ! which chunked >/dev/null; then
+    printf "Requires 'chunked' package from deb2.dogcraft.de\n" >&2
+    exit 1
+fi
+
+
+
+backup_target="$targetHost/backups"
+coproc {
+    ssh_target "sudo ./backup"
+    read -r end
+}
+read -r line <&${COPROC[0]} || exit 1;
+if [[ $line != "Backup service ready" ]]; then
+    echo "Backup service did not respond"
+    exit 1
+fi
+function start_backup {
+    ident="$(date "+%Y-%m-%d-%H-%M-%S")"
+    self="$backup_target/$ident"
+    mkdir -p "$self"
+    if [[ -h "$backup_target/last" ]]; then
+        last="$(readlink "$backup_target/last")"
+        ln -s "../$last" "$self/prev"
+        rm "$backup_target/last"
+    fi
+    ln -s "$ident" "$backup_target/last"
+}
+function base {
+    printf "base\n" >&${COPROC[1]}
+    chunked decode <&${COPROC[0]} > "$self/pg_base.tar.gz"
+    ls -alsh -- "$self/pg_base.tar.gz"
+    read -r line <&${COPROC[0]} || exit 1;
+    echo "pg_base done: $line"
+    echo "Backup info: "
+    tar xzO backup_label <  "$self/pg_base.tar.gz"
+}
+function incremental {
+    last=
+    hash=
+    if [[ $(find -L "$self" -maxdepth 14 -name "pg_base.tar.gz" | wc -l) -lt 1 ]]; then
+        printf "doing pg_base backup to $self/pg_base.tar.gz:\n"
+        base
+        last="$(tar xzO backup_label <  "$self/pg_base.tar.gz" | grep "^START WAL LOCATION: " | sed "s/.*(file \\(.*\\))/\\1/")"
+        hash="-"
+    else
+        last=""
+        folder="$self"
+        while [[ $last == "" ]]; do
+            folder="$folder/prev"
+            last="$(tar tf "$folder/pg_wal.tar.gz" | grep "^[A-Z0-9]*$" | tail -n 1)"
+        done
+        echo "Found last WAL file in backup: $folder"
+        hash=$(tar xfO "$folder/pg_wal.tar.gz" "$last" | sha256sum | cut -d" " -f1)
+    fi
+    printf "Last WAL-name: %s\n" "$last"
+    printf "incremental\n" >&${COPROC[1]}
+    printf "%s\n" "$last" >&${COPROC[1]}
+    printf "%s\n" "$hash" >&${COPROC[1]}
+    read -r line <&${COPROC[0]} || exit 1;
+    if [[ "$line" != "Ready" ]]; then
+        printf "incremental backup didn't start\n"
+        exit 1
+    fi
+    chunked decode <&${COPROC[0]} > "$self/pg_wal.tar.gz"
+    printf "Tar contents\n"
+    tar tf "$self/pg_wal.tar.gz"
+    ls -alsh -- "$self/pg_wal.tar.gz"
+    read -r line <&${COPROC[0]} || exit 1;
+    if [[ $line == "incremental backup done, confirm cleanup!" ]]; then
+        printf "y\n" >&${COPROC[1]}
+    else
+        printf "Done, but got strange line for cleanup confirmation: %s\n" "$line"
+    fi
+    printf "Done incremental backup\n"
+}
+
+if [[ "$2" == "restore" ]]; then
+    sourceHost=$3
+    sourceHost=${sourceHost%/}
+    backup_target="${sourceHost}/backups"
+    folder="$backup_target/last"
+    printf "Restoring backup %s\n" "$(readlink -e -- "$folder")"
+    tar tf "$folder/pg_wal.tar.gz"
+    while ! [[ -f "$folder/pg_base.tar.gz" ]]; do
+        folder="$folder/prev"
+        printf "Requires backup %s\n" "$(readlink -e -- "$folder")"
+        tar tf "$folder/pg_wal.tar.gz"
+    done
+    #tar tf "$folder/pg_base.tar.gz"
+    printf "restore\n" >&${COPROC[1]}
+    read -r reply <&${COPROC[0]} || exit 1;
+    if [[ $reply != "postgres base" ]]; then
+        printf "Service is not ready to receive backup: %s\n" "$reply"
+        exit 1
+    fi
+    echo "sending base"
+    chunked < "$folder/pg_base.tar.gz" >&${COPROC[1]}
+    echo "done sending base"
+    folder="$backup_target/last"
+    while :; do
+        read -r reply <&${COPROC[0]} || exit 1;
+        if [[ $reply != "incremental?" ]]; then
+            printf "Service is not ready to receive backup: %s\n" "$reply"
+            exit 1
+        fi
+        printf "y\n" >&${COPROC[1]}
+        printf "Sending pg_wal from %s\n" "$(readlink -e -- "$folder")"
+        chunked < "$folder/pg_wal.tar.gz" >&${COPROC[1]}
+        if [[ -f "$folder/pg_base.tar.gz" ]]; then
+            break
+        fi
+        folder="$folder/prev"
+    done
+    read -r reply <&${COPROC[0]} || exit 1;
+    if [[ $reply != "incremental?" ]]; then
+        printf "Service is not ready to receive backup: %s\n" "$reply"
+        exit 1
+    fi
+    printf "n\n" >&${COPROC[1]}
+elif [[ "$2" == "backup" ]]; then
+    start_backup
+    incremental
+else
+    printf "Error, unknown sub command: %s\n" "$2" >&2
+fi
+
+
+printf "end\n" >&${COPROC[1]}
+read -r line <&${COPROC[0]} || exit 1;
+printf "END: %s\n" "$line"

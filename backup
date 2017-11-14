@@ -1,0 +1,109 @@
+#!/bin/bash
+printf "Backup service ready\n"
+postgres_cluster=9.6/main
+if ! which chunked >/dev/null; then
+    printf "Installing chunked en-/decoder\n" >&2
+    # Install signing key for debian repo 'deb2.dogcraft.de' where 'chunked' is hosted. Downloadable from "http://deb.dogcraft.de/signer.gpg".
+    apt-key add - >&2 <<EOF
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1
+
+mQINBFRfgHwBEADKRVJpTEVbB6W37ZnIrh0xDRcsTqNgOIJTi/ZsloxN0c9/G8BU
+knEHMpT++qqG3A6pFfg5rci4mEIirt3CoEJw40asyGVSTCl93PNPyuN4ArYxsAL3
+y9lTBKy2UdSorbmrDNUgc+jkevlQ+xcXBypOOY0zDST5402Wfiyk+VVkBDzlLo8L
+q1VsrVVZGqgIfC5D+p2SeRfVxjzDRuDBDS+ifZaxR57bx2bJrrA92C6r4Qo3i7CQ
+IM955G44BU2k/HSaEbl7woXoxb9DTRzvmJ1/m0HT9cl3ak7Zl/UXhJlQd992/e98
+gkX6S1UtFsIp+fmfWtGyeySRH0av3s2i8gcGwUncyyvQ3XIJJcUisaDxrlK4K6ZH
+3XSpApgRoUWp0yDUxELme+rXxd6S32DHxHGbjgD8Crus99GHa9OaBSjAJ2vDp1+d
+wF6Ol/luaZIhGopI4dOhrscZBl8PE8jDsJbOMMpj+KgWD64nRzmnBGYrvhsBaeUh
+EtvnGCiPiK1ojO49ovxVaxkniIyXyZrej8wAHFBEoC7+KaXR0xml5HPonPOIPYSl
+UHmOPYB+3EehJHDt1p2lAUkjFUNppUyLaArX0PZV3I8mgm5PFwbXgooqWwj1C9kW
+cTU1b81KzEKHxf1CoG/rxRTu6qBzTn5yxs03k8uq/Yn534H5GGKwKm1KswARAQAB
+tChEb2djcmFmdCBEZWIgUHVibGlzaGVyIDxkZWJAZG9nY3JhZnQuZGU+iQI+BBMB
+AgAoBQJUX4B8AhsDBQkHhM4ABgsJCAcDAgYVCAIJCgsEFgIDAQIeAQIXgAAKCRCm
+Mbavn9PflNi6EACw9TlR0LL/3RJ9QM0TUfL0Pn5l+NuANL0HUmMepjbEFSxLnmlA
+ypPP0zhi07Ig6Pxkh0Ni9PYBdxkbtFT5ts0SBBcCYvdE8ZqtU7Yx9YtICrHfcx7Y
+yUsvtvubFfvAT3QfXA1C3PHf4ocyQgW6TdqV5jxmbNi0orhggyBZgmVvvheeCMe2
+4dIHqA2Ny3ODSON6pNF4q8QXL1dLU4AvYcWX+79ROMnyv/woMiNdNYFB+9ylSN9U
+sHLu9deXpaxJR25mpk8NuWgyGQUYwtyqySO2ZAFqlC2pdpZ3hRhxi/biPG0XbtF3
+MJQznfNxmf83FfS3u9fHLrZuCkrwbSBXeniKPmlF1aG7ZpGRIRuDUtNhEkgc2tmi
+4tIG/brg0B9rpm2XEccDPxEO14MminXho6IImwpbhiKqnBfOKFv8OX0zzjQkUaFn
+AFuytwyaNn8dBv5WeNNC+8KwBKoDaPUg4JcgzUyXATz0+SIuMBRqWN1q/rz4GCCz
+Lf/TqEl41h8p1weM33md0p9Fa/xQRe3X9ChVbGyGylaIhniol0IcgROa3t04cO9x
+xdh/wvgmh7wodCE3mK/G3jcTnQcBh6T6qr/z9PqToZJoRFqjPLv78UmnTJ6Za/ZX
+uXeRJJf1C3Nswjfwexo2CeWbbQ3X+PGLcDgUmTG7yxDjKL/8rJ0DWWQ8fg==
+=C8K/
+-----END PGP PUBLIC KEY BLOCK-----
+EOF
+    cp -v modules/lxc/files/dogcraft.list /etc/apt/sources.list.d/ >&2
+    apt-get update >&2
+    apt-get install -y chunked >&2
+fi
+
+while :; do
+    read -r command || break
+    if [[ $command == base ]]; then
+        sudo lxc-attach -n postgres-primary -- su -c 'pg_basebackup -Ft -z -D - -P' postgres | chunked
+        printf "base backup done\n"
+    elif [[ $command == incremental ]]; then
+        read -e req_name
+        read -e req_hash
+        if ! grep -qi -- '^[A-Z0-9]\{24\}$' <<< $req_name; then
+            printf "Error: invalid WAL-name.\n" >&2
+            printf "Error\n"
+        fi
+        real_hash="$(sha256sum "/data/postgres/data/archive/$req_name" | cut -d" " -f1)"
+        if [[ $req_hash != "-" ]] && [[ $real_hash != $req_hash ]]; then
+            printf "Error: hash mismatch on expected %s != provided %s\n" "$real_hash" "$req_hash" >&2
+            printf "Error\n"
+            exit 1
+        fi
+        printf "Ready\n"
+
+        files=( /data/postgres/data/archive/* )
+        for i in "${files[@]}"; do
+            name="$(basename $i)"
+            if ( [[ "$name" != "$req_name".* ]] && [[ $name > $req_name ]] ) || ( ( [[ "$name" == "$req_name".* ]] || [[ $req_name == $name ]] ) && [[ $req_hash == "-" ]] ); then
+                printf "%s\n" "$name"
+            fi
+        done | tar cz -C /data/postgres/data/archive -T - | chunked
+        printf "incremental backup done, confirm cleanup!\n"
+        read -e confirmation
+        if [[ $confirmation == "y" ]]; then
+            printf "Cleaning up archive\n" >&2
+            lxc-attach -n postgres-primary -- pg_archivecleanup /var/lib/postgresql/archive/ "$req_name"
+        else
+            printf "Not doing cleanup\n" >&2
+        fi
+    elif [[ $command == restore ]]; then
+        # for now (and quick development) we override
+        rm -R /data/postgres/data
+
+        if [[ -d /data/postgres/data ]]; then
+            printf "error\n"
+            exit 1
+        fi
+        printf "postgres base\n"
+        mkdir -p "/data/postgres/data/${postgres_cluster}"
+        chunked decode > /data/postgres/data/pg_base.tar.gz
+        mkdir -p /data/postgres/data/restore
+        while :; do
+            printf "incremental?\n"
+            read -e inc
+            if [[ $inc != "y" ]]; then
+                break
+            fi
+            chunked decode | tar xvz -C /data/postgres/data/restore >&2
+        done
+        cat > "/data/postgres/data/${postgres_cluster}/recovery.conf" <<EOF
+restore_command = 'cp /var/lib/postgresql/restore/%f "%p"'
+archive_cleanup_command = 'pg_archivecleanup /var/lib/postgresql/restore %r'
+recovery_end_command = 'touch /var/lib/postgresql/postgres-ready'
+EOF
+        mkdir -p "/data/postgres/conf/${postgres_cluster}"
+        printf "auto\n" > "/data/postgres/conf/${postgres_cluster}/start.conf"
+        touch "/data/postgres/conf/${postgres_cluster}/postgresql.conf"
+    elif [[ $command == end ]]; then
+        printf "end\n"
+    fi
+done

@@ -86,3 +86,13 @@ function mcurl {
 function admin_ssh {
     ssh -i admin-key -p 2222 "admin@$to" "$@"
 }
+
+# Install backup is a hook to be triggered before the sytem is set up
+function install_backup {
+    :
+}
+
+function populate_system {
+    # default is create fresh data using bootstrap-user
+    execute-bootstrap-user
+}

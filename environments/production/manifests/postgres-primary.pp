@@ -2,17 +2,31 @@ node postgres-primary {
   include container::contained
   include container::no_ssh
 
+  exec { 'backup installed':
+    before => Package['postgresql'],
+    notify => Exec['backup permissions corrected'],
+    command => '! [ -f /var/lib/postgresql/9.6/main/PG_VERSION ] && mkdir -p /var/lib/postgresql/9.6/main && tar xzf /var/lib/postgresql/pg_base.tar.gz -C /var/lib/postgresql/9.6/main',
+    onlyif => '[ -f /var/lib/postgresql/pg_base.tar.gz ]',
+    provider => 'shell'
+  }
   package{ 'postgresql':
     ensure => 'installed',
     install_options => ['--no-install-recommends'],
-  }
-
+  }->
   class { 'postgresql::globals':
     version => '9.6',
   }->
   class { 'postgresql::server':
       listen_addresses => '*',
-  } ->
+  }
+  exec { 'backup permissions corrected':
+    require => Class['postgresql::server::install'],
+    before => Class['postgresql::server::initdb'],
+    command => 'chown -R postgres:postgres /var/lib/postgresql && rm /var/lib/postgresql/pg_base.tar.gz',
+    onlyif => '[ -f /var/lib/postgresql/pg_base.tar.gz ]',
+    refreshonly => 'true',
+    provider => 'shell'
+  }
   postgresql::server::db { 'gigi':
     require  => Package['postgresql'],
     user     => 'gigi',
@@ -30,7 +44,7 @@ node postgres-primary {
   }
 
   postgresql::server::db { 'quiz':
-    require  => Class['postgresql::server'],
+    require  => Exec['backup installed'],
     user     => 'quiz',
     password => postgresql_password('quiz', $passwords[postgres][quiz]),
   }
@@ -55,6 +69,7 @@ node postgres-primary {
     value => 'on'
   }
   file{'/var/lib/postgresql/archive/':
+    require  => Exec['backup permissions corrected'],
     ensure => 'directory',
     owner => 'postgres'
   } ->
