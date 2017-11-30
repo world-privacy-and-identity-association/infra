@@ -103,6 +103,24 @@ EOF
         mkdir -p "/data/postgres/conf/${postgres_cluster}"
         printf "auto\n" > "/data/postgres/conf/${postgres_cluster}/start.conf"
         touch "/data/postgres/conf/${postgres_cluster}/postgresql.conf"
+    elif [[ $command == journal ]]; then
+        read -e from
+        action=$(date -u -d '00:00 today' +%s)
+        if [[ $action == $from ]]; then
+            printf "no journals\n"
+            continue
+        fi
+        printf "Until: %s\n" "$action"
+        for i in $(sudo lxc-ls); do
+            [[ $i == "base-image" ]] && continue
+            printf "journal: %s\n" "$i"
+            if [[ $from == - ]]; then
+                lxc-attach -n "$i" -- journalctl --utc --until="@$action" -o export | chunked
+            else
+                lxc-attach -n "$i" -- journalctl --utc --since="@$from" --until="@$action" -o export | chunked
+            fi
+        done
+        printf "end-of-journals\n"
     elif [[ $command == end ]]; then
         printf "end\n"
     fi

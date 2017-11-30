@@ -1,5 +1,4 @@
 #!/bin/bash
-
 targetHost=$1
 targetHost=${targetHost%/}
 source config
@@ -82,6 +81,64 @@ function incremental {
     printf "Done incremental backup\n"
 }
 
+# This code snippet cannot be used inline and therefore has to be a function.
+# When calling this function like 'receive_journal "journal" <&$fd', the
+# file-descriptor "$fd" is resolved in the calling original shell.
+# However when inlining this code like "... | ... <&$fd" the file-descriptor
+# is resolved in the first subshell created by this command and therefore
+# not valid anymore.
+function receive_journal {
+    chunked decode | /lib/systemd/systemd-journal-remote -o "$1" -
+}
+function journal {
+    printf "Fetching journals...\n"
+    printf "journal\n" >&${COPROC[1]}
+    folder="$self"
+    for i in {1..10}; do
+        folder="$folder/prev"
+        if [[ -f "$folder/journal-until" ]]; then
+            break;
+        fi
+    done
+    if [[ -f "$folder/journal-until" ]]; then
+        printf "From: "
+        from="$(cat "$folder/journal-until")"
+        date --utc -d "@$from"
+        printf -- "%s\n" "$from" >&${COPROC[1]}
+    else
+        printf "From: start\n"
+        printf -- "-\n" >&${COPROC[1]}
+    fi
+    read -r until <&${COPROC[0]} || exit 1;
+    if [[ $until == "no journals" ]]; then
+        printf "no journal events\n"
+        return 1
+    fi
+    if [[ ! $until == "Until: "* ]]; then
+        printf "Unexpected Until line: %s\n" "$until"
+        exit 1
+    fi
+    until="${until#Until: }"
+    printf "until: "
+    date --utc -d "@$until"
+
+    printf "Until: %s\n" "$until"
+    while :; do
+        read -r line <&${COPROC[0]} || exit 1;
+        if [[ $line == "end-of-journals" ]]; then
+            break;
+        fi
+        jnl="${line#journal: }"
+        printf "journal: %s\n" "$jnl"
+        receive_journal "$self/part-$jnl.journal" <&${COPROC[0]}
+    done
+    journalctl --file="$self/part-*" -o export | /lib/systemd/systemd-journal-remote -o "$self/all.journal" -
+    printf "Removing split journals:\n"
+    rm -v "$self/part-"*.journal
+    cat > "$self/journal-until" <<< "$until"
+    ls -als "$self"
+}
+
 if [[ "$2" == "restore" ]]; then
     sourceHost=$3
     sourceHost=${sourceHost%/}
@@ -126,8 +183,13 @@ if [[ "$2" == "restore" ]]; then
     fi
     printf "n\n" >&${COPROC[1]}
 elif [[ "$2" == "backup" ]]; then
+    if ! [[ -x /lib/systemd/systemd-journal-remote ]]; then
+        printf "This script requires 'systemd-journal-remote' to reformat received journals\n"
+        exit 1
+    fi
     start_backup
     incremental
+    journal
 else
     printf "Error, unknown sub command: %s\n" "$2" >&2
 fi
