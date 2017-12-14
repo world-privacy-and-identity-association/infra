@@ -43,11 +43,12 @@ define teracara_quiz (){
       source => ['puppet:///modules/nre/config/ca/root.crt'],
       show_diff => 'no'
   }
+  include postgresql::client
   exec { 'import quiz schema':
     command => "/usr/bin/psql -U quiz -h ${ips[postgres]} < /usr/share/teracara-quiz/sql/db_postgresql.sql",
     environment => ["PGPASSWORD=${passwords[postgres][quiz]}"],
     unless  => "/usr/bin/psql -U quiz -h ${ips[postgres]} -tc \"select * from pg_tables where schemaname='public';\" | /bin/grep -q '.'",
-    require => [Package['teracara-quiz']],
+    require => [Package['teracara-quiz'], Class['postgresql::client']],
     before => File['/etc/apache2/sites-available/000-default.conf']
   }
   file {'/etc/apache2/sites-available/000-default.conf':
