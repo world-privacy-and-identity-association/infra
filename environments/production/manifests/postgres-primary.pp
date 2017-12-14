@@ -81,4 +81,8 @@ node postgres-primary {
     target => '/etc/postgresql/9.6/main/postgresql.conf',
     value => 'replica'
   }
+  postgresql_conf{'max_wal_senders':
+    target => '/etc/postgresql/9.6/main/postgresql.conf',
+    value => '2'
+  }
 }
