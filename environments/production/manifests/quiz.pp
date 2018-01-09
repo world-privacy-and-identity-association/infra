@@ -51,6 +51,11 @@ define teracara_quiz (){
     require => [Package['teracara-quiz'], Class['postgresql::client']],
     before => File['/etc/apache2/sites-available/000-default.conf']
   }
+  package{'php-pgsql':
+    ensure => 'installed',
+    before => File['/etc/apache2/sites-available/000-default.conf'],
+    notify => Service['apache2'],
+  }
   file {'/etc/apache2/sites-available/000-default.conf':
       require => Package['apache2'],
       ensure => 'file',
