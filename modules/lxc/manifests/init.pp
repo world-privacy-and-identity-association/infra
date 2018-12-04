@@ -7,7 +7,7 @@ class lxc {
     }->
     exec {'lxc-base-image-created':
         logoutput => on_failure,
-        command => '/usr/bin/lxc-create -n base-image -t debian -- -r stretch --packages=gnupg2,puppet,lsb-release,debconf-utils && rm -r /var/lib/lxc/base-image/rootfs/var/apt/lists',# gnupg2 needed for puppet managing apt-keys
+        command => '/usr/bin/lxc-create -n base-image -t debian -- -r stretch --packages=gnupg2,puppet,lsb-release,debconf-utils && rm -r /var/lib/lxc/base-image/rootfs/var/lib/apt/lists',# gnupg2 needed for puppet managing apt-keys
         unless => '/usr/bin/test -d /var/lib/lxc/base-image',
         timeout => '0'
     }
