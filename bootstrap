@@ -33,10 +33,12 @@ if ! grep -q host01 /etc/hosts; then
 fi
 
 
-puppet module install puppetlabs-firewall --version 1
 # In version 4.19 and 4.20, the "file_line" is not able to remove "search" and "domain" lines from the container's resolv.conf.
 # Since Puppet 4 does not support "union ranges" of versions (only Puppet 5 does, which is currently not included in Debian), require >=4.21.0 and ignore that <=4.18 works as well.
-puppet module install puppetlabs-stdlib --version ">=4.21.0"
+# <5 is required for puppetlabs-postgresql v4: https://forge.puppet.com/puppetlabs/postgresql/4.9.0/dependencies
+# installing a newer stdlib causes postgresql-v4 fail installation.
+puppet module install puppetlabs-stdlib --version ">=4.21.0 <5.0.0"
+puppet module install puppetlabs-firewall --version 1
 puppet module install puppetlabs-apt --version 2
 puppet module install puppetlabs-postgresql --version 4
 puppet module install puppetlabs-mysql --version 3
