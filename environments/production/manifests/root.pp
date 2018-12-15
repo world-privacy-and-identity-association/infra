@@ -24,6 +24,35 @@ class my_fw::post {
     table    => 'nat',
     chain    => 'PREROUTING',
   } ->
+  firewall {'80 dnatv6':
+    provider => 'ip6tables',
+    proto  => 'tcp',
+    dport => '80',
+    jump => 'DNAT',
+    todest => "[${$ipsv6[front-nginx]}]:80",
+    iniface => $internet_iface,
+    table => 'nat',
+    chain => 'PREROUTING'
+  } ->
+  firewall {'80 dnatv6-https':
+    provider => 'ip6tables',
+    proto  => 'tcp',
+    dport => '443',
+    jump => 'DNAT',
+    todest => "[${$ipsv6[front-nginx]}]:443",
+    iniface => $internet_iface,
+    table => 'nat',
+    chain => 'PREROUTING'
+  } ->
+  firewall {'80 MASQ-v6':
+    provider => 'ip6tables',
+    chain => 'POSTROUTING',
+    table => 'nat',
+    proto  => 'all',
+    jump => 'MASQUERADE',
+    source => "[fc00:1::]/64",
+    outiface => $internet_iface,
+  } ->
   firewall { '80 dnat-git':
     proto  => 'tcp',
     dport  => '9418',
@@ -56,18 +85,15 @@ class my_fw::post {
 node host01 {
     include my_fw::post
     include lxc
-    package {'bridge-utils':
-        ensure => 'installed'
-    } -> file {'/etc/network/interfaces.d/lxcbr0':
-        source => 'puppet:///modules/lxc/lxcbr0'
-    } -> exec {'ifup lxcbr0':
-      command => '/sbin/ifdown lxcbr0; /sbin/ifup lxcbr0',
-      refreshonly => true,
-      subscribe => File['/etc/network/interfaces.d/lxcbr0']
-    } -> exec { "enable forwarding on $hostname":
+    exec { "enable forwarding on $hostname":
       user    => "root",
       command => "/bin/echo 1 > /proc/sys/net/ipv4/ip_forward",
-      unless  => "/bin/grep -q 1 /proc/sys/net/ipv4/ip_forward";
+      unless  => "/bin/grep -q 1 /proc/sys/net/ipv4/ip_forward",
+      require => Class['lxc']
+    } -> exec { "enable v6 forwarding on $hostname":
+      user    => "root",
+      command => "/bin/echo 1 > /proc/sys/net/ipv6/conf/all/forwarding",
+      unless  => "/bin/grep -q 1 /proc/sys/net/ipv6/conf/all/forwarding"
     }->
       file_line {"root-resolv1":
       path   => "/etc/resolv.conf",

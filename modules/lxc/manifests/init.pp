@@ -11,12 +11,25 @@ class lxc {
         unless => '/usr/bin/test -d /var/lib/lxc/base-image',
         timeout => '0'
     }
+    package {'bridge-utils':
+        ensure => 'installed'
+    } -> file {'/etc/network/interfaces.d/lxcbr0':
+        source => 'puppet:///modules/lxc/lxcbr0'
+    } ~> exec{'stop all containers':
+      command => '/bin/bash -c \'for i in $(lxc-ls); do if [[ $i != base-image ]]; then lxc-stop -n "$i"; fi; done\'',
+      refreshonly => true,
+    } -> exec {'ifup lxcbr0':
+      command => '/sbin/ifdown lxcbr0; /sbin/ifup lxcbr0',
+      refreshonly => true,
+      subscribe => File['/etc/network/interfaces.d/lxcbr0']
+    }
     define container ($contname, $ip, $dir = [], $bind = {}, $confline = []) {
         exec {"lxc-$contname-issue-cert":
           command => "/usr/bin/puppet ca destroy \"$contname\";/usr/bin/puppet ca generate \"$contname\"",
           unless => "/usr/bin/[ -f /var/lib/puppet/ssl/private_keys/$contname.pem ] && /usr/bin/[ -f /var/lib/puppet/ssl/certs/$contname.pem ]",
           before => Exec["lxc-$contname-started"]
         }
+	$ipv6 = $ipsv6[$contname]
 
         exec{ "lxc-$contname-created":
             logoutput => on_failure,
@@ -43,6 +56,16 @@ class lxc {
         } -> file_line {"lxc-$contname-conf5":
             path   => "/var/lib/lxc/$contname/config",
             line   => 'lxc.network.ipv4.gateway = 10.0.3.1',
+            notify => Exec["lxc-$contname-started"],
+      } -> file_line {"lxc-$contname-conf6":
+            path   => "/var/lib/lxc/$contname/config",
+            line   => "lxc.network.ipv6 = $ipv6/64",
+	    match  => '^lxc\.network\.ipv6 =',
+            notify => Exec["lxc-$contname-started"],
+        } -> file_line {"lxc-$contname-conf7":
+            path   => "/var/lib/lxc/$contname/config",
+            line   => 'lxc.network.ipv6.gateway = fc00:0001::0000:0001',
+	    match  => '^lxc\.network\.ipv6\.gateway =',
             notify => Exec["lxc-$contname-started"],
         } -> file_line {"lxc-$contname-network":
             path   => "/var/lib/lxc/$contname/rootfs/etc/network/interfaces",

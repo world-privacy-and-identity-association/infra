@@ -5,3 +5,6 @@ iface lxcbr0 inet static
         bridge_maxwait 0
         address 10.0.3.1
         netmask 255.255.255.0
+
+iface lxcbr0 inet6 static
+      address fc00:0001::0000:0001/64

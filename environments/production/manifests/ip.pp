@@ -8,6 +8,17 @@ $ips = {
    postgres => '10.0.3.14',
    gitweb => '10.0.3.20'}
 
+$ipsv6 = {
+   front-nginx => 'fc00:1::d',
+   postgres => 'fc00:1::e',
+   postgres-primary => 'fc00:1::e',
+   gigi => 'fc00:1::f',
+   cassiopeia => 'fc00:1::10',
+   exim => 'fc00:1::11',
+   hop => 'fc00:1::12',
+   quiz => 'fc00:1::13',
+   gitweb => 'fc00:1::14'}
+
 $passwords = {
    postgres => {
      gigi => 'gigi',
