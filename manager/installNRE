@@ -12,6 +12,7 @@ function extract {
     for i in $pattern; do
         cat $i | ssh_target "mkdir -p $folder && tar xzv -C $folder"
     done
+    ssh_target "sudo chown -R puppet:puppet $folder"
 }
 shopt -s nullglob
 extract "nre-results/signer-server-*.tar.gz" modules/cassiopeia_signer/files
