@@ -36,7 +36,7 @@ function reset_vm {
 }
 function update {
     title 'S1: apt-get; clone'
-    ssh_target -t "sudo apt-get update && DEBIAN_FRONTEND=noninteractive sudo -E apt-get upgrade -o Dpkg::Options::=\"--force-confold\" -y && sudo apt-get install -y git curl $devPkgs"
+    ssh_target -t "( sudo apt-get update | cat ) && ( DEBIAN_FRONTEND=noninteractive sudo -E apt-get upgrade -o Dpkg::Options::=\"--force-confold\" -y | cat ) && ( sudo apt-get install -y git curl $devPkgs | cat )"
     echo "Git init"
     ssh_target -t '[[ -d .git ]] || git init;'
     echo "Git push"
