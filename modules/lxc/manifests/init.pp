@@ -75,9 +75,9 @@ class lxc {
         } -> exec {"lxc-$contname-started":
             path => '/usr/bin',
             refreshonly   => true,
-            refresh   => "/usr/bin/lxc-stop -n $contname ; /usr/bin/lxc-start -dn $contname",
+            refresh   => "/usr/bin/lxc-stop -n $contname ; /usr/bin/lxc-start -dn $contname; /usr/bin/lxc-attach -n $contname -- bash -c 'while ! [[ -S /run/systemd/private ]]; do sleep 1; done'",
         }-> exec {"lxc-$contname-started1":
-            command   => "/usr/bin/lxc-start -dn $contname",
+            command   => "/usr/bin/lxc-start -dn $contname; /usr/bin/lxc-attach -n $contname -- bash -c 'while ! [[ -S /run/systemd/private ]]; do sleep 1; done'",
             unless    => "/usr/bin/[ \"\$(lxc-info -Hsn $contname)\" != \"STOPPED\" ]",
         }
         $dir.each |String $in| {
