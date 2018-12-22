@@ -1,0 +1,20 @@
+[Unit]
+Description=Motion uWSGI app
+After=syslog.target
+
+[Service]
+ExecStart=/home/motion/motion/bin/uwsgi --ini ../motion.ini
+User=motion
+Group=motion
+Restart=on-failure
+KillSignal=SIGQUIT
+Type=notify
+StandardError=journal
+NotifyAccess=all
+WorkingDirectory=/home/motion/motion
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=no
+ReadOnlyPaths=/home
+ReadWritePaths=/home/motion/motion/__pycache__/ /motion-socket
