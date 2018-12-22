@@ -91,4 +91,7 @@ node front-nginx {
     notify => Service['nginx'],
     crt => 'gitweb/web'
   }
+
+  Front_vhost <| tag == nginx |> ~> Service['nginx']
+  File <| tag == nginx |> ~> Service['nginx']
 }

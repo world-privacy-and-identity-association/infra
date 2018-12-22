@@ -233,6 +233,9 @@ if $signerLocation == 'self' {
         contname => 'quiz',
         ip => $ips[quiz]
     }
+    File <| tag == root |>
+    Lxc::Container <| tag == root |>
+    Lxc::Container_bind <| tag == root |>
     file{'/run/gitweb-socket':
         ensure => 'directory'
     }
