@@ -23,6 +23,20 @@ class lxc {
       refreshonly => true,
       subscribe => File['/etc/network/interfaces.d/lxcbr0']
     }
+    
+    define container_bind($container, $out = $name, $target, $option = ""){
+      file{"/var/lib/lxc/$container/rootfs/$target":
+        ensure => directory,
+        require => File_line["lxc-$container-conf5"],
+        before => Exec["lxc-$container-started"]
+      }->
+      file_line { "lxc-$container-mount-$out":
+        path   => "/var/lib/lxc/$container/config",
+        line   => "lxc.mount.entry = $out $target none bind$option 0 0",
+        require=> [File_line["lxc-$container-conf5"], File["$out"]],
+        notify  => Exec["lxc-$container-started"],
+      }
+    }
     define container ($contname, $ip, $dir = [], $bind = {}, $confline = []) {
         exec {"lxc-$contname-issue-cert":
           command => "/usr/bin/puppet ca destroy \"$contname\";/usr/bin/puppet ca generate \"$contname\"",
