@@ -6,6 +6,7 @@ $ips = {
    hop => '10.0.3.18',
    quiz => '10.0.3.19',
    postgres => '10.0.3.14',
+   motion => '10.0.3.22',
    gitweb => '10.0.3.20'}
 
 $ipsv6 = {
@@ -17,6 +18,7 @@ $ipsv6 = {
    exim => 'fc00:1::11',
    hop => 'fc00:1::12',
    quiz => 'fc00:1::13',
+   motion => 'fc00:1::16',
    gitweb => 'fc00:1::14'}
 
 $passwords = {

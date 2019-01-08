@@ -85,4 +85,6 @@ node postgres-primary {
     target => '/etc/postgresql/9.6/main/postgresql.conf',
     value => '2'
   }
+  Postgresql::Server::Db <| tag == primary |>
+  Postgresql::Server::Pg_hba_rule <| tag == primary |>
 }

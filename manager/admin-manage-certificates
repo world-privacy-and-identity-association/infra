@@ -98,6 +98,9 @@ while true; do
             "modules/quiz/files/client")
                 options="profile=client-orga&CN=Quiz+Api+User&SANs=quiz@$domain"
                 ;;
+            "modules/motion/files/motion")
+                options="profile=server-orga&CN=&SANs=motion.$domain"
+                ;;
             *)
                 echo "Unknown certificate in $line, rejecting"
                 echo "FAIL" >&${COPROC[1]}

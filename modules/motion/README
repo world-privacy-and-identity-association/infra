@@ -1,0 +1,3 @@
+Usage:
+- Put list of allowed root-pem files in "files/motion-roots.pem"
+- Add allowed certificates with usernames and privileges to "templates/user_map.epp" which can be initialized with a copy of "templates/user_map.template.epp"

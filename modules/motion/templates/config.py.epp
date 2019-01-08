@@ -1,0 +1,4 @@
+DATABASE="pq://<%=$ips[postgres]%>/motion"
+USER="<%=$user%>"
+PASSWORD="<%=$password%>"
+GROUP_PREFIX={"motion.<%=$systemDomain%>":{"fellowship": "f", "board": "m"}}

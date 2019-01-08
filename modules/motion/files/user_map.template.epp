@@ -1,0 +1,6 @@
+map_hash_bucket_size 128;
+
+# user map
+map "$ssl_client_serial:$ssl_client_i_dn" $<%=$container%>_user_role {
+    default     "<invalid>/";
+}

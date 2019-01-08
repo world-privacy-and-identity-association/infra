@@ -1,4 +1,4 @@
-define front_vhost($source, $crt = undefined){
+define front_vhost($source, $crt = undefined, $args = {}){
   if $crt {
     file{"/etc/ssl/private/$name.crt":
       ensure => 'file',
@@ -16,7 +16,7 @@ define front_vhost($source, $crt = undefined){
   }
   file {"/etc/nginx/sites-available/$name.conf":
     ensure => 'file',
-    content => epp($source),
+    content => epp($source, $args),
     require => Package['nginx-light'],
   }->
   file {"/etc/nginx/sites-enabled/$name.conf":
@@ -91,4 +91,7 @@ node front-nginx {
     notify => Service['nginx'],
     crt => 'gitweb/web'
   }
+
+  Front_vhost <| tag == nginx |> ~> Service['nginx']
+  File <| tag == nginx |> ~> Service['nginx']
 }

@@ -50,6 +50,7 @@ if [[ $com == "update certs" || $com == "force update certs" ]]; then
     update_cert "modules/gigi/files/gigi"
     update_cert "modules/gigi/files/client"
     update_cert "modules/gitweb/files/web"
+    update_cert "modules/motion/files/motion"
     echo "DONE"
     [[ -f $folder/web.crt ]] && rm $folder/web.crt
     [[ -f $folder/web.req ]] && rm $folder/web.req
