@@ -25,8 +25,21 @@ define motion::virtual ($domain = "motion.${systemDomain}", $container = $name) 
   }
   @front_vhost{$container:
     source => 'motion/nginx.epp',
-    args => {container => $container, cert_stem => "/etc/ssl/private/${container}", domain => $domain, socket => "unix:/${container}-socket/motion.fcgi"},
+    args => {container => $container, name => $container, cert_stem => "/etc/ssl/private/${container}", domain => $domain, socket => "unix:/${container}-socket/motion.fcgi"},
     crt => "motion/${container}",
+    tag => [nginx]
+  }
+
+  @file{'/etc/nginx/conf.d/bucket_size.conf':
+    content => "map_hash_bucket_size 256;log_format motion-cert '\$date_gmt \$host:\$ssl_client_serial:\$ssl_client_i_dn;\$motion_user_role';\n",
+    ensure => 'file',
+    before => Service['nginx'],
+    tag => [nginx]
+  }
+  @file{'/etc/nginx/conf.d/motion_map.conf':
+    content => inline_epp(file('motion/user_map.epp', 'motion/user_map.template.epp'), {name => $name}),
+    ensure => 'file',
+    before => Service['nginx'],
     tag => [nginx]
   }
 
@@ -44,5 +57,19 @@ define motion::virtual ($domain = "motion.${systemDomain}", $container = $name) 
     address     => "${ips[$container]}/32",
     auth_method => 'md5',
     tag => [primary]
+  }
+}
+
+define motion::frontend($domain, $container, $roots = 'puppet:///modules/motion/motion-roots.pem'){
+  @file{"/etc/ssl/${name}-roots.pem":
+    ensure => 'file',
+    source => [$roots, 'puppet:///modules/nre/config/ca/root.crt'],
+    tag => [nginx]
+  }
+  @front_vhost{"${container}-${domain}":
+    source => 'motion/nginx.epp',
+    args => {container => $container, name => $name, cert_stem => "/etc/ssl/private/${container}", domain => $domain, socket => "unix:/${container}-socket/motion.fcgi"},
+    crt => "motion/${container}",
+    tag => [nginx]
   }
 }
