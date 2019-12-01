@@ -4,3 +4,6 @@ Description=cassiopeia client
 [Service]
 ExecStart=/usr/bin/cassiopeia
 WorkingDirectory=/var/lib/cassiopeia/
+
+[Install]
+WantedBy=multi-user.target

@@ -4,3 +4,6 @@ Description=cassiopeia signer
 [Service]
 ExecStart=/usr/bin/cassiopeia-signer
 WorkingDirectory=/var/lib/cassiopeia/
+
+[Install]
+WantedBy=multi-user.target
