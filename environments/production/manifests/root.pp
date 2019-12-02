@@ -44,6 +44,16 @@ class my_fw::post {
     table => 'nat',
     chain => 'PREROUTING'
   } ->
+  firewall {'80 dnatv6-hop-ssh':
+    provider => 'ip6tables',
+    proto  => 'tcp',
+    dport => '2222',
+    jump => 'DNAT',
+    todest => "[${$ipsv6[hop]}]:22",
+    iniface => $internet_iface,
+    table => 'nat',
+    chain => 'PREROUTING'
+  } ->
   firewall {'80 MASQ-v6':
     provider => 'ip6tables',
     chain => 'POSTROUTING',

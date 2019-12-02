@@ -73,6 +73,7 @@ function register {
           --data-urlencode "regional=1" \
           --data-urlencode "radius=1" \
           --data-urlencode "tos_agree=1" \
+          --data-urlencode "dp_agree=1" \
           --data-urlencode "process=Weiter" \
           --data-urlencode "csrf=$csrf" > /dev/null
 }
