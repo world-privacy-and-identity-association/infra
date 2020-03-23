@@ -33,29 +33,27 @@ function csrf {
 [[ -f root.crt ]] || curl -s "http://www.$domain/roots?pem" > root.crt
 echo "Opening Gigi connection"
 rm -f $folder/cookie-jar
-csrf=$(mcurl login -c $folder/cookie-jar|csrf)
+curl -v --cacert root.crt -c "$folder/cookie-jar" -E gigi-key.pem "https://secure.$domain/login"
 if ! [[ -f $folder/cookie-jar ]]; then
     echo "Need cookies." >&2
     exit 1;
 fi
-mcurl login --data-urlencode "username=$admin_email" --data-urlencode "password=$admin_password" --data-urlencode "csrf=$csrf" -c $folder/cookie-jar > /dev/null
-
-csrf=$(mcurl account/details | csrf "tail -n 1")
-mcurl account/details --data "orgaForm=orga&org%3A3=yes&csrf=$csrf"
+csrf=$(mscurl account/details | csrf "tail -n 1")
+mscurl account/details --data "orgaForm=orga&org%3A3=yes&csrf=$csrf"
 echo "Gigi is ready"
 function issue0 {
     options=$1
     csr=$2
-    csrf=$(mcurl "account/certs/new" | csrf "head -n 1")
+    csrf=$(mscurl "account/certs/new" | csrf "head -n 1")
 
     encoded=$(cat "$csr" | tr '\n' '?' | sed "s/=/%3D/g;s/+/%2B/g;s/\?/%0A/g")
 
-    mcurl account/certs/new -d "CSR=$encoded&process=Next&csrf=$csrf" > /dev/null
+    mscurl account/certs/new -d "CSR=$encoded&process=Next&csrf=$csrf" > /dev/null
 
-    serial=$(mcurl account/certs/new -d "$options&OU=&hash_alg=SHA256&validFrom=now&validity=2y&login=1&description=&process=Issue+Certificate&csrf=$csrf" -v 2>&1 | tee $folder/certlog | grep "< Location: " | sed "s_.*/\([a-f0-9]*\)[^0-9]*_\1_")
+    serial=$(mscurl account/certs/new -d "$options&OU=&hash_alg=SHA256&validFrom=now&validity=2y&login=1&description=&process=Issue+Certificate&csrf=$csrf" -v 2>&1 | tee $folder/certlog | grep "< Location: " | sed "s_.*/\([a-f0-9]*\)[^0-9]*_\1_")
     echo "Certificate: $serial"
     if [[ $serial != "" ]]; then
-        mcurl "account/certs/$serial.crt?chain&noAnchor" > $folder/cert.crt
+        mscurl "account/certs/$serial.crt?chain&noAnchor" > $folder/cert.crt
         return 0;
     else
         return 1;
@@ -127,7 +125,7 @@ while true; do
 done
 echo "end process" >&${COPROC[1]}
 cat <&${COPROC[0]}
-mcurl logout > /dev/null
+mscurl logout > /dev/null
 
 if [[ "$updated" == "true" ]]; then
     admin_ssh -t "reload certs"

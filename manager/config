@@ -82,6 +82,13 @@ function mcurl {
     curl -s --cacert root.crt -b $folder/cookie-jar "https://www.$domain/$url" "$@"
 }
 
+# See mcurl, but use client-certificate from 'gigi-key.pem'
+function mscurl {
+    local url="$1"
+    shift
+    curl -s -E gigi-key.pem --cacert root.crt -b $folder/cookie-jar "https://secure.$domain/$url" "$@" | tee -a .weblog
+}
+
 # Connect via ssh into the "hop" container.
 function admin_ssh {
     ssh -i admin-key -p 2222 "admin@$to" "$@"
