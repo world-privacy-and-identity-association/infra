@@ -61,3 +61,45 @@ server {
         root /data/challenge;
     }
 }
+
+# `map` can only be used at the http level
+map $uri $redir_dest {
+    default "";
+    /policy "https://policy.wpia.club";
+    /policy/dataPrivacy "https://policy.wpia.club/data_protection_policy.html";
+    /policy/ToS "https://policy.wpia.club/terms_of_service.pdf";
+    /policy/CPS "https://policy.wpia.club/cp.pdf";
+    /policy/verification "https://policy.wpia.club/verification_policy.html";
+    /policy/raagent "https://policy.wpia.club/policies/ra_agent_verification_policy.html";
+    /policy/organisation "https://policy.wpia.club/policies/organisation_verification_policy.html";
+    /policy/ttp "https://policy.wpia.club/policies/ttp_verification_policy.html";
+    /policy/nucleus "https://policy.wpia.club/policies/nucleus_verification_policy.html";
+    /kb/acceptableDocuments "https://documents.wpia.club/kb/acceptableDocuments.html";
+    /kb/agentQualifyingChallenge "https://documents.wpia.club/agent-qualifying-challenge.html";
+    /kb/gigi "https://documents.wpia.club/gigi-user-documentation.html";
+    /kb/CSR "https://documents.wpia.club/index.html#how-to-other-documents";
+    /kb/names "https://policy.wpia.club/handbooks/names_handbook.html";
+    /kb/lostPassword "https://documents.wpia.club/index.html#how-to-password";
+    /kb/goodPassword "https://documents.wpia.club/index.html#how-to-password";
+    /kb/knownPasswordHash "https://documents.wpia.club/index.html#how-to-password";
+    /kb/verificationHandbook "https://documents.wpia.club/kb/verificationHandbook";
+    /kb/truststores "https://documents.wpia.club/index.html#how-to-other-documents";
+    /ttp/user "https://documents.wpia.club";
+    /ttp/country "https://documents.wpia.club";
+    /blog "https://wpia.club";
+    /imprint "https://documents.wpia.club/imprint.html";
+    /isocode "https://www.iso.org/iso/home/standards/country_codes/iso-3166-1_decoding_table.htm";
+}
+
+server {
+    listen       0.0.0.0:443 ssl;
+    server_name  link.<%=$systemDomain%>;
+    ssl_certificate /etc/ssl/private/gigi.crt;
+    ssl_certificate_key /etc/ssl/private/gigi.key;
+
+    if ($redir_dest = "") {
+        return 404;
+    }
+
+    return 302 $redir_dest;
+}
