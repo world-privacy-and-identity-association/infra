@@ -1,0 +1,76 @@
+{
+  "builders": [
+    {
+      "accelerator": "kvm",
+      "boot_command": [
+        "<down><tab>",
+        "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+        "language=en locale=en_US.UTF-8 ",
+        "country=DE keymap=us ",
+        "hostname=host01 domain=test ",
+        "<enter><wait>"
+      ],
+      "boot_wait": "1s",
+      "disk_compression": true,
+      "disk_detect_zeroes": "unmap",
+      "disk_discard": "unmap",
+      "disk_size": "2000M",
+      "format": "qcow2",
+      "headless": true,
+      "host_port_max": 2229,
+      "host_port_min": 2222,
+      "http_directory": "http",
+      "http_port_max": 9999,
+      "http_port_min": 9990,
+      "iso_checksum": "file:{{ user `source_checksum_url` }}",
+      "iso_url": "{{ user `source_iso` }}",
+      "output_directory": "{{ user `output_dir` }}",
+      "shutdown_command": "echo '{{ user `ssh_password` }}'  | sudo -S /sbin/shutdown -hP now",
+      "skip_compaction": false,
+      "ssh_password": "{{ user `ssh_password` }}",
+      "ssh_timeout": "1000s",
+      "ssh_username": "{{ user `ssh_username` }}",
+      "type": "qemu",
+      "vm_name": "{{ user `output_name` }}"
+    }
+  ],
+  "description": "This builder builds a QEMU image from a Debian \"netinst\" CD ISO file.\nIt contains a few basic tools and can be use as a \"cloud image\" alternative.\n",
+  "min_packer_version": "1.3.2",
+  "post-processors": [
+    {
+      "keep_input_artifact": true,
+      "type": "manifest"
+    }
+  ],
+  "provisioners": [
+    {
+      "sources": [
+        "scripts/00-install-packages.sh",
+        "scripts/01-configure-cloudinit.sh",
+        "scripts/02-enable-services.sh",
+        "scripts/99-cleanup.sh"
+      ],
+      "destination": "/tmp/",
+      "type": "file"
+    },
+    {
+      "inline": [
+        "/tmp/00-install-packages.sh",
+        "/tmp/01-configure-cloudinit.sh",
+        "/tmp/02-enable-services.sh",
+        "/tmp/99-cleanup.sh"
+      ],
+      "execute_command": "echo 'wpia' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'",
+      "type": "shell"
+    }
+  ],
+  "variables": {
+    "output_dir": "output",
+    "output_name": "debian.qcow2",
+    "source_checksum_url": "https://cdimage.debian.org/cdimage/archive/9.13.0/amd64/iso-cd/SHA256SUMS",
+    "source_iso": "https://cdimage.debian.org/cdimage/archive/9.13.0/amd64/iso-cd/debian-9.13.0-amd64-netinst.iso",
+    "ssh_password": "wpia",
+    "ssh_username": "wpia"
+  }
+}
+
