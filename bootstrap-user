@@ -238,7 +238,7 @@ mccurl "account/domains/$domain" > $folder/domainStatus
 
 echo "Issuing certificate for web"
 
-if issue mccurl "profile=server-orga&CN=&SANs=dns%3Awww.$domainName%2Cdns%3Astatic.$domainName%2Cdns%3Aapi.$domainName%2Cdns%3Asecure.$domainName"; then
+if issue mccurl "profile=server-orga&CN=&SANs=dns%3Awww.$domainName%2Cdns%3Astatic.$domainName%2Cdns%3Aapi.$domainName%2Cdns%3Asecure.$domainName%2Cdns%3Alink.$domainName"; then
     cp $folder/cert.crt modules/gigi/files/gigi.crt
     setfacl -m user:puppet:r $folder/priv
     cp --preserve=all $folder/priv modules/gigi/files/gigi.key

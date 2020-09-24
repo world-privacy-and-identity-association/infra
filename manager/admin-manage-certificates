@@ -79,7 +79,7 @@ while true; do
         options="profile=server-orga&CN=&SANs=quiz.$domain"
         case ${line#ISSUE } in
             "modules/gigi/files/gigi")
-                options="profile=server-orga&CN=&SANs=www.$domain%0Asecure.$domain%0Astatic.$domain%0Aapi.$domain%0A"
+                options="profile=server-orga&CN=&SANs=www.$domain%0Asecure.$domain%0Astatic.$domain%0Aapi.$domain%0Alink.$domain%0A"
                 ;;
             "modules/pootle/files/web")
                 options="profile=server-orga&CN=&SANs=pootle.$domain"
